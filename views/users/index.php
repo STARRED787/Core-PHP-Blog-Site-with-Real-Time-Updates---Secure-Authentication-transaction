@@ -11,7 +11,7 @@
 
 <body>
     <div class="container mt-5">
-        <h2 class="text-center mb-4">Sign Up</h2>
+        <h2 class="text-center mb-4">User Sign In</h2>
         <form action="" method="POST">
             <div class="mb-3">
                 <label for="username" class="form-label">Username</label>
@@ -22,7 +22,7 @@
                 <input type="password" name="password" class="form-control" id="password" placeholder="Password"
                     required>
             </div>
-            <button type="submit" class="btn btn-primary w-100">Sign Up</button>
+            <button type="submit" class="btn btn-primary w-100">Sign In</button>
         </form>
     </div>
 
