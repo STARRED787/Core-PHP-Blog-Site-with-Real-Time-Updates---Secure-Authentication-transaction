@@ -5,14 +5,17 @@ ini_set('display_errors', 1);
 require_once '../config/JWT.php';  // Adjust the path based on your file structure
 require_once '../models/User.php'; // Include the User model
 require_once '../helpers/GetCockieId.php'; // Include the JWT utility
+require_once '../middleware/AuthMiddleware.php'; // Include the AuthMiddleware
 
 class UserController
 {
     private $userModel;
+    private $authMiddleware;
 
     public function __construct($pdo)
     {
         $this->userModel = new User($pdo);  // Create instance of the User model
+        $this->authMiddleware = new AuthMiddleware($pdo);  // Create instance of the AuthMiddleware
     }
 
     // Handle user signup
@@ -20,7 +23,7 @@ class UserController
     {
         if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             try {
-                $username = filter_var($_POST['username']);
+                $username = filter_var($_POST['username'], FILTER_SANITIZE_STRING);
                 $password = $_POST['password'];
 
                 if (empty($username) || strlen($username) < 3) {
@@ -42,13 +45,18 @@ class UserController
                     throw new Exception("User registration failed!");
                 }
 
-                $jwtToken = JWTUtility::encode(['id' => $userId, 'username' => $username]);
+                // Generate JWT token
+                $jwtToken = JWTUtility::encode(['id' => $userId, 'username' => $username, 'role' => 'user']);
 
                 if (!$jwtToken) {
                     throw new Exception("Failed to generate JWT token!");
                 }
 
+                // Store JWT token in database (optional)
                 $this->userModel->storeJwtToken($userId, $jwtToken);
+
+                // Set cookie to store JWT token with 1-hour expiration
+                setcookie("jwt_token", $jwtToken, time() + 3600, "/", "", false, true); // 3600 seconds = 1 hour
 
                 echo "✅ User successfully registered!";
                 header("Location: ../public/index.php");
@@ -66,7 +74,7 @@ class UserController
     {
         if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             try {
-                $username = filter_var($_POST['username']);
+                $username = filter_var($_POST['username'], FILTER_SANITIZE_STRING);
                 $password = $_POST['password'];
 
                 if (empty($username) || strlen($username) < 3) {
@@ -95,8 +103,10 @@ class UserController
                     throw new Exception("Failed to generate JWT token!");
                 }
 
-                // Store JWT token (optional, depending on your use case)
+                // Store JWT token in database (optional)
                 $this->userModel->storeJwtToken($user['id'], $jwtToken);
+
+
 
                 // Set cookie to store JWT token with 1-hour expiration
                 setcookie("jwt_token", $jwtToken, time() + 3600, "/", "", false, true); // 3600 seconds = 1 hour
@@ -106,9 +116,9 @@ class UserController
 
                 // Redirect based on user role
                 if ($role == 'admin') {
-                    header("Location: ../views/admin/dashboard.php"); // Admin dashboard
+                    header("Location: ../views/admin/index.php"); // Admin dashboard
                 } elseif ($role == 'user') {
-                    header("Location: ../views/users/home.php"); // User dashboard
+                    header("Location: ../views/users/index.php"); // User dashboard
                 } else {
                     header("Location: ../public/index.php"); // Default redirection
                 }
@@ -121,7 +131,34 @@ class UserController
         }
     }
 
+    // Handle user logout
+    public function logout()
+    {
+        // Clear the JWT cookie
+        setcookie("jwt_token", "", time() - 3600, "/", "", false, true); // Expire the cookie
 
+        // Redirect to login page
+        header("Location: ../public/login.php");
+        exit();
+    }
 
+    // Handle user dashboard
+    public function userDashboard()
+    {
+        // Check if user is authenticated and has a 'user' role
+        $this->authMiddleware->redirectIfNotAuthenticated();
+
+        // User dashboard logic here
+        echo "Welcome to the User Dashboard!";
+    }
+
+    // Handle admin dashboard
+    public function adminDashboard()
+    {
+        // Check if user is authenticated and has an 'admin' role
+        $this->authMiddleware->redirectIfNotAdmin();
+
+        // Admin dashboard logic here
+        echo "Welcome to the Admin Dashboard!";
+    }
 }
-?>
