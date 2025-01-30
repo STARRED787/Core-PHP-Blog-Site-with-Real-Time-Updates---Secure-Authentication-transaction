@@ -49,5 +49,19 @@ class User
         }
     }
 
+    // Get user details by username
+    public function getUserByUsername($username)
+    {
+        $query = "SELECT id, username, password, role FROM users WHERE username = :username";
+        $stmt = $this->pdo->prepare($query);
+        $stmt->bindParam(':username', $username);
+        $stmt->execute();
+
+        return $stmt->fetch(PDO::FETCH_ASSOC); // Make sure 'role' is returned along with other fields
+    }
+
+
+
+
 }
 ?>
