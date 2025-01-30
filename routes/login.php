@@ -1,10 +1,20 @@
 <?php
 // register.php
 
-require_once '../config/Database.php';  // Include database config
-require_once '../controllers/UserController.php';  // Include the UserController
-require_once '../models/User.php';  // Include the User model
+require_once __DIR__ . '/../vendor/autoload.php';
+require_once __DIR__ . '/../config/database.php';
+require_once __DIR__ . '/../controllers/UserController.php';
+require_once __DIR__ . '/../models/User.php';
 
-// Instantiate the controller and call the sign-up method
-$userController = new UserController($pdo);
+// Create database connection
+$database = new Database();
+$pdo = $database->getConnection();
+
+// Initialize User model with database connection
+$user = new User($pdo);
+
+// Initialize UserController with User model and PDO connection
+$userController = new UserController($user, $pdo);
+
+// Handle the login request
 $userController->signIn();

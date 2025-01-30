@@ -12,10 +12,10 @@ class UserController
     private $userModel;
     private $authMiddleware;
 
-    public function __construct($pdo)
+    public function __construct($userModel, $pdo)
     {
-        $this->userModel = new User($pdo);  // Create instance of the User model
-        $this->authMiddleware = new AuthMiddleware($pdo);  // Create instance of the AuthMiddleware
+        $this->userModel = $userModel;
+        $this->authMiddleware = new AuthMiddleware($pdo);
     }
 
     // Handle user signup
@@ -72,63 +72,70 @@ class UserController
     // Handle user sign-in
     public function signIn()
     {
-        if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-            try {
-                $username = filter_var($_POST['username']);
-                $password = $_POST['password'];
+        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            $username = $_POST['username'] ?? '';
+            $password = $_POST['password'] ?? '';
 
-                if (empty($username) || strlen($username) < 3) {
-                    throw new Exception("Username must be at least 3 characters long!");
-                }
-
-                if (strlen($password) < 8) {
-                    throw new Exception("Password must be at least 8 characters long!");
-                }
-
-                // Check if the user exists
-                $user = $this->userModel->getUserByUsername($username);
-                if (!$user) {
-                    throw new Exception("Username not found!");
-                }
-
-                // Verify the password
-                if (!password_verify($password, $user['password'])) {
-                    throw new Exception("Invalid password!");
-                }
-
+            $user = $this->userModel->getUserByUsername($username);
+            
+            if ($user && password_verify($password, $user['password'])) {
+                // Create JWT payload
+                $payload = [
+                    'id' => $user['id'],
+                    'username' => $user['username'],
+                    'role' => $user['role']
+                ];
+                
                 // Generate JWT token
-                $jwtToken = JWTUtility::encode(['id' => $user['id'], 'username' => $username, 'role' => $user['role']]);
-
-                if (!$jwtToken) {
-                    throw new Exception("Failed to generate JWT token!");
-                }
-
-                // Store JWT token in database (optional)
-                $this->userModel->storeJwtToken($user['id'], $jwtToken);
-
-
-
-                // Set cookie to store JWT token with 1-hour expiration
-                setcookie("jwt_token", $jwtToken, time() + 3600, "/", "", false, true); // 3600 seconds = 1 hour
-
-                // Check if 'role' exists in the user data before redirecting
-                $role = isset($user['role']) ? $user['role'] : 'user'; // Default to 'user' if 'role' is not set
-
-                // Redirect based on user role
-                if ($role == 'admin') {
-                    header("Location: ../views/admin/index.php"); // Admin dashboard
-                } elseif ($role == 'user') {
-                    header("Location: ../views/users/index.php"); // User dashboard
+                $token = JWTUtility::encode($payload);
+                
+                // Set token in cookie and header
+                setcookie('token', $token, time() + (86400 * 30), "/", "", true, true); // Secure, HttpOnly
+                header('Authorization: Bearer ' . $token);
+                
+                if ($this->isApiRequest()) {
+                    header('Content-Type: application/json');
+                    echo json_encode([
+                        'success' => true,
+                        'token' => $token,
+                        'user' => [
+                            'id' => $user['id'],
+                            'username' => $user['username'],
+                            'role' => $user['role']
+                        ]
+                    ]);
                 } else {
-                    header("Location: ../public/index.php"); // Default redirection
+                    // Redirect based on role
+                    if ($user['role'] === 'admin') {
+                        header('Location: /KD Enterprise/blog-site/views/admin/index.php');
+                    } else {
+                        header('Location: /KD Enterprise/blog-site/views/users/index.php');
+                    }
                 }
                 exit();
-
-            } catch (Exception $e) {
-                error_log("Sign-In Error: " . $e->getMessage());
-                echo "❌ Error: " . $e->getMessage();
+            } else {
+                if ($this->isApiRequest()) {
+                    header('HTTP/1.0 401 Unauthorized');
+                    echo json_encode(['error' => 'Invalid credentials']);
+                } else {
+                    $_SESSION['error'] = 'Invalid credentials';
+                    header('Location: /KD Enterprise/blog-site/public/index.php');
+                }
+                exit();
             }
         }
+    }
+
+    private function isApiRequest()
+    {
+        return (
+            isset($_SERVER['HTTP_ACCEPT']) && 
+            strpos($_SERVER['HTTP_ACCEPT'], 'application/json') !== false
+        ) || 
+        (
+            isset($_SERVER['CONTENT_TYPE']) && 
+            strpos($_SERVER['CONTENT_TYPE'], 'application/json') !== false
+        );
     }
 
     // Handle user logout

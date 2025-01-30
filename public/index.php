@@ -1,9 +1,22 @@
-<?Php
+<?php
+session_start();
+require_once __DIR__ . '/../config/database.php';
+require_once __DIR__ . '/../middleware/AuthMiddleware.php';
 
+// Create database connection
+$database = new Database();
+$pdo = $database->getConnection();
 
+// Initialize AuthMiddleware
+$authMiddleware = new AuthMiddleware($pdo);
+
+// Prevent re-signin if user has valid token
+$authMiddleware->preventReSignIn();
+
+// Get error message if any
+$error = $_SESSION['error'] ?? '';
+unset($_SESSION['error']);
 ?>
-
-
 
 <!DOCTYPE html>
 <html lang="en">

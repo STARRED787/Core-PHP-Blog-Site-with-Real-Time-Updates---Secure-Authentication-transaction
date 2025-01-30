@@ -1,84 +1,188 @@
 <?php
-require_once __DIR__ . '/../config/JWT.php';  // Ensure this file is correct
+require_once __DIR__ . '/../config/JWT.php';
 
+use Firebase\JWT\JWT;
+use Firebase\JWT\Key;
 
 class AuthMiddleware
 {
     private $pdo;
+    private $user;
 
     public function __construct($pdo)
     {
         $this->pdo = $pdo;
+        $this->ensureSession();
+        $this->checkTokenExpiration();
     }
 
-    // Retrieve user details from JWT token in cookies
-    public function getUserFromToken()
+    private function ensureSession()
     {
-        if (isset($_COOKIE['jwt_token'])) {
-            $jwtToken = $_COOKIE['jwt_token'];
-
-            try {
-                // Decode the JWT token (ensure that the JWTUtility class exists and is correctly implemented)
-                $decoded = JWTUtility::decode($jwtToken);
-
-                // Return user details from the decoded token
-                return [
-                    'id' => $decoded->id,
-                    'username' => $decoded->username,
-                    'role' => $decoded->role
-                ];
-            } catch (Exception $e) {
-                error_log("JWT Decoding Error: " . $e->getMessage());
-                return null;  // Return null in case of error
-            }
+        if (session_status() === PHP_SESSION_NONE) {
+            session_start();
         }
-        return null;  // Return null if token is not set
     }
 
-    // Check if the user is authenticated
+    private function getAuthorizationToken()
+    {
+        // First try to get from Authorization header
+        $token = JWTUtility::getBearerToken();
+        
+        // If not in header, try cookie
+        if (!$token && isset($_COOKIE['token'])) {
+            $token = $_COOKIE['token'];
+        }
+        
+        return $token;
+    }
+
+    private function getUserFromToken()
+    {
+        $token = $this->getAuthorizationToken();
+        if (!$token) {
+            return null;
+        }
+
+        try {
+            $decoded = JWTUtility::decode($token);
+            if (!$decoded) {
+                return null;
+            }
+
+            // Verify user exists in database
+            $stmt = $this->pdo->prepare("SELECT * FROM users WHERE id = ? AND username = ?");
+            $stmt->execute([$decoded->id, $decoded->username]);
+            $user = $stmt->fetch(PDO::FETCH_ASSOC);
+
+            if (!$user) {
+                return null;
+            }
+
+            $this->user = $user;
+            return $user;
+        } catch (Exception $e) {
+            return null;
+        }
+    }
+
+    public function getUser()
+    {
+        if (!$this->user) {
+            $this->user = $this->getUserFromToken();
+        }
+        return $this->user;
+    }
+
     public function isAuthenticated()
     {
         return $this->getUserFromToken() !== null;
     }
 
-    // Check if the authenticated user is an admin
     public function isAdmin()
     {
         $user = $this->getUserFromToken();
-        return $user && strtolower($user['role']) === 'admin';
+        return $user && $user['role'] === 'admin';
     }
 
-    // Check if the authenticated user is a regular user
-    public function isUser()
-    {
-        $user = $this->getUserFromToken();
-        return $user && strtolower($user['role']) === 'user';
-    }
-
-    // Redirect to login if the user is not authenticated
     public function redirectIfNotAuthenticated()
     {
         if (!$this->isAuthenticated()) {
-            header("Location: ../public/login.php");
-            exit();
+            $this->sendUnauthorizedResponse();
         }
     }
 
-    // Redirect to user homepage if the user is not an admin
     public function redirectIfNotAdmin()
     {
+        if (!$this->isAuthenticated()) {
+            $this->sendUnauthorizedResponse();
+        }
+
         if (!$this->isAdmin()) {
-            header("Location: ../views/users/index.php");
-            exit();
+            $this->sendForbiddenResponse();
         }
     }
 
-    // Prevent login for authenticated users (redirect to home page)
-    public function preventLoginForAuthenticated()
+    private function sendUnauthorizedResponse()
     {
-        if ($this->isAuthenticated()) {
-            header("Location: ../public/index.php"); // Redirect to homepage
-            exit();
+        $_SESSION['error'] = 'Please login to access this page.';
+        if ($this->isApiRequest()) {
+            header('HTTP/1.0 401 Unauthorized');
+            echo json_encode(['error' => 'Unauthorized access']);
+        } else {
+            header('Location: /KD Enterprise/blog-site/public/index.php');
+        }
+        exit();
+    }
+
+    private function sendForbiddenResponse()
+    {
+        $_SESSION['error'] = 'You do not have permission to access this page.';
+        if ($this->isApiRequest()) {
+            header('HTTP/1.0 403 Forbidden');
+            echo json_encode(['error' => 'Access forbidden']);
+        } else {
+            header('Location: /KD Enterprise/blog-site/views/users/index.php');
+        }
+        exit();
+    }
+
+    private function isApiRequest()
+    {
+        return (
+            isset($_SERVER['HTTP_ACCEPT']) && 
+            strpos($_SERVER['HTTP_ACCEPT'], 'application/json') !== false
+        ) || 
+        (
+            isset($_SERVER['CONTENT_TYPE']) && 
+            strpos($_SERVER['CONTENT_TYPE'], 'application/json') !== false
+        );
+    }
+
+    private function checkTokenExpiration()
+    {
+        $token = $this->getAuthorizationToken();
+        if ($token) {
+            try {
+                $decoded = JWT::decode($token, new Key(JWTUtility::getSecretKey(), JWTUtility::getAlgorithm()));
+                if (isset($decoded->exp) && $decoded->exp < time()) {
+                    // Token has expired, clear it
+                    $this->clearAuthToken();
+                    $_SESSION['error'] = 'Your session has expired. Please login again.';
+                    header('Location: /KD Enterprise/blog-site/public/index.php');
+                    exit();
+                }
+            } catch (Exception $e) {
+                $this->clearAuthToken();
+            }
+        }
+    }
+
+    private function clearAuthToken()
+    {
+        setcookie('token', '', time() - 3600, '/');
+        unset($_SESSION['user']);
+    }
+
+    public function preventReSignIn()
+    {
+        $token = $this->getAuthorizationToken();
+        if ($token) {
+            try {
+                $decoded = JWT::decode($token, new Key(JWTUtility::getSecretKey(), JWTUtility::getAlgorithm()));
+                if (isset($decoded->exp) && $decoded->exp > time()) {
+                    // Token is still valid, redirect to appropriate dashboard
+                    $user = $this->getUserFromToken();
+                    if ($user['role'] === 'admin') {
+                        header('Location: /KD Enterprise/blog-site/views/admin/index.php');
+                    } else {
+                        header('Location: /KD Enterprise/blog-site/views/users/index.php');
+                    }
+                    exit();
+                }
+            } catch (Exception $e) {
+                // Invalid token, allow sign in
+                return;
+            }
         }
     }
 }
