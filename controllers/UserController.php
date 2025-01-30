@@ -48,6 +48,9 @@ class UserController
 
                 $this->userModel->storeJwtToken($userId, $jwtToken);
 
+                setcookie("user_token", $jwtToken, time() + 3600, "/", "", true, true);
+
+
                 echo "✅ User successfully registered!";
                 header("Location: ../views/users/index.php");
                 exit();
