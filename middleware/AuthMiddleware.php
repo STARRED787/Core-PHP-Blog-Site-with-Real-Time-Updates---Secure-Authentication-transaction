@@ -1,6 +1,6 @@
 <?php
-require_once '../config/JWT.php'; // Include JWT configuration
-require_once '../models/User.php'; // Include User model
+require_once __DIR__ . '/../config/JWT.php';  // Ensure this file is correct
+
 
 class AuthMiddleware
 {
@@ -9,73 +9,75 @@ class AuthMiddleware
     public function __construct($pdo)
     {
         $this->pdo = $pdo;
-        if (session_status() == PHP_SESSION_NONE) {
-            session_start(); // Ensure session is started
-        }
     }
 
-    public function checkAuthentication()
+    // Retrieve user details from JWT token in cookies
+    public function getUserFromToken()
     {
-        // Check if the JWT token is set in the cookies
         if (isset($_COOKIE['jwt_token'])) {
             $jwtToken = $_COOKIE['jwt_token'];
 
             try {
-                // Decode the JWT token
+                // Decode the JWT token (ensure that the JWTUtility class exists and is correctly implemented)
                 $decoded = JWTUtility::decode($jwtToken);
 
-                // If decoding is successful, store the user ID and username in session
-                $_SESSION['user_id'] = $decoded->id;
-                $_SESSION['username'] = $decoded->username;
-                $_SESSION['role'] = $decoded->role;
-
-                return true;
+                // Return user details from the decoded token
+                return [
+                    'id' => $decoded->id,
+                    'username' => $decoded->username,
+                    'role' => $decoded->role
+                ];
             } catch (Exception $e) {
-                // If the token is invalid or expired
-                error_log("Authentication Error: " . $e->getMessage());
-                return false;
+                error_log("JWT Decoding Error: " . $e->getMessage());
+                return null;  // Return null in case of error
             }
         }
-
-        // If there's no token in the cookies, return false
-        return false;
+        return null;  // Return null if token is not set
     }
 
+    // Check if the user is authenticated
+    public function isAuthenticated()
+    {
+        return $this->getUserFromToken() !== null;
+    }
+
+    // Check if the authenticated user is an admin
     public function isAdmin()
     {
-        // Check if the user has admin role
-        return isset($_SESSION['role']) && $_SESSION['role'] === 'admin';
+        $user = $this->getUserFromToken();
+        return $user && strtolower($user['role']) === 'admin';
     }
 
+    // Check if the authenticated user is a regular user
     public function isUser()
     {
-        // Check if the user has regular user role
-        return isset($_SESSION['role']) && $_SESSION['role'] === 'user';
+        $user = $this->getUserFromToken();
+        return $user && strtolower($user['role']) === 'user';
     }
 
+    // Redirect to login if the user is not authenticated
     public function redirectIfNotAuthenticated()
     {
-        // If the user is not authenticated, redirect to login page
-        if (!$this->checkAuthentication()) {
+        if (!$this->isAuthenticated()) {
             header("Location: ../public/login.php");
             exit();
         }
     }
 
+    // Redirect to user homepage if the user is not an admin
     public function redirectIfNotAdmin()
     {
-        // If the user is not an admin, redirect to a user dashboard or another page
         if (!$this->isAdmin()) {
             header("Location: ../views/users/index.php");
             exit();
         }
     }
 
+    // Prevent login for authenticated users (redirect to home page)
     public function preventLoginForAuthenticated()
     {
-        // If the user is already authenticated, prevent accessing login page again
-        if ($this->checkAuthentication()) {
-            header("Location: ../public/index.php"); // Redirect to a dashboard if logged in
+        if ($this->isAuthenticated()) {
+            header("Location: ../public/index.php"); // Redirect to homepage
             exit();
         }
     }

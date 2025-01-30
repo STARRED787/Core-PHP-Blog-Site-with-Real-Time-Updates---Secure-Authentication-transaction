@@ -1,9 +1,11 @@
 <?php
-// Load .env file using phpdotenv
-require_once '../vendor/autoload.php'; // Ensure this path is correct
+require_once __DIR__ . '/../vendor/autoload.php';
 
-$dotenv = Dotenv\Dotenv::createImmutable(__DIR__ . '/..');
+use Dotenv\Dotenv;
+
+$dotenv = Dotenv::createImmutable(__DIR__ . '/../');
 $dotenv->load();
+
 
 // Get the database connection details from the .env file
 $host = $_ENV['DB_HOST'];

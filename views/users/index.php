@@ -8,7 +8,7 @@
 </head>
 
 <body>
-    Welcome to Admin Dashboard
+    Welcome to User Home
 </body>
 
 </html>

@@ -4,7 +4,7 @@ ini_set('display_errors', 1);
 
 require_once '../config/JWT.php';  // Adjust the path based on your file structure
 require_once '../models/User.php'; // Include the User model
-require_once '../helpers/GetCockieId.php'; // Include the JWT utility
+
 require_once '../middleware/AuthMiddleware.php'; // Include the AuthMiddleware
 
 class UserController
@@ -74,7 +74,7 @@ class UserController
     {
         if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             try {
-                $username = filter_var($_POST['username'], FILTER_SANITIZE_STRING);
+                $username = filter_var($_POST['username']);
                 $password = $_POST['password'];
 
                 if (empty($username) || strlen($username) < 3) {
@@ -158,7 +158,6 @@ class UserController
         // Check if user is authenticated and has an 'admin' role
         $this->authMiddleware->redirectIfNotAdmin();
 
-        // Admin dashboard logic here
-        echo "Welcome to the Admin Dashboard!";
+
     }
 }
