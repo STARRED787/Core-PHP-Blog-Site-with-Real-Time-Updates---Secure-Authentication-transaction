@@ -1,41 +1,58 @@
 <?php
-// config/JWT.php
 use \Firebase\JWT\JWT;
+use Dotenv\Dotenv;
+
 
 class JWTUtility
 {
-    private static $secretKey; // Will be initialized from environment variable
+    private static $secretKey;
 
-    public function __construct()
-    {
-        // Loading environment variable (make sure you use dotenv to load .env file)
-        $dotenv = Dotenv\Dotenv::createImmutable(__DIR__ . '/../');
-        $dotenv->load();
-        self::$secretKey = getenv('JWT_SECRET_KEY'); // Get the secret key from .env
-    }
-
-    // Function to generate a JWT token
-    public static function encode($data)
-    {
-        $issuedAt = time();
-        $expirationTime = $issuedAt + 3600;  // JWT valid for 1 hour from the issued time
-        $payload = [
-            "iat" => $issuedAt, // Issued At
-            "exp" => $expirationTime, // Expiration Time
-            "data" => $data // Custom data (e.g., user info)
-        ];
-
-        return JWT::encode($payload, self::$secretKey, 'HS256');
-    }
-
-    // Function to decode the JWT token
-    public static function decode($jwt)
+    public static function initialize()
     {
         try {
-            $decoded = JWT::decode($jwt, new \Firebase\JWT\Key(self::$secretKey, 'HS256'));
-            return (array) $decoded->data; // Return decoded data as an array
+            // Load environment variables correctly
+            $dotenv = Dotenv::createImmutable(__DIR__ . '/../');
+            $dotenv->load();
+
+            // Fetch the secret key
+            self::$secretKey = $_ENV['JWT_SECRET_KEY'] ?? getenv('JWT_SECRET_KEY');
+
+            if (!self::$secretKey) {
+                throw new Exception("JWT_SECRET_KEY is missing in the environment variables.");
+            }
         } catch (Exception $e) {
-            return null; // Token is invalid or expired
+            die("❌ " . $e->getMessage());
+        }
+    }
+
+    public static function encode($data)
+    {
+        self::initialize(); // Ensure key is loaded
+
+        try {
+            $issuedAt = time();
+            $expirationTime = $issuedAt + 3600;
+
+            $payload = [
+                "iat" => $issuedAt,
+                "exp" => $expirationTime,
+                "data" => $data
+            ];
+
+            return JWT::encode($payload, self::$secretKey, 'HS256');
+        } catch (Exception $e) {
+            return "❌ Error generating JWT: " . $e->getMessage();
+        }
+    }
+
+    public static function decode($jwt)
+    {
+        self::initialize(); // Ensure key is loaded
+
+        try {
+            return JWT::decode($jwt, new \Firebase\JWT\Key(self::$secretKey, 'HS256'));
+        } catch (Exception $e) {
+            return "❌ Error decoding JWT: " . $e->getMessage();
         }
     }
 }

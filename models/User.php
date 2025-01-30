@@ -1,72 +1,53 @@
 <?php
+error_reporting(E_ALL);
+ini_set('display_errors', 1);
 // models/User.php
 
 class User
 {
-    private $db;
-    private $table = 'users';
+    private $pdo;
 
-    public function __construct($db)
+    public function __construct($pdo)
     {
-        $this->db = $db;
+        $this->pdo = $pdo;
     }
 
-    // Function to get user data by username
-    public function getUserByUsername($username)
-    {
-        $query = "SELECT * FROM " . $this->table . " WHERE username = :username LIMIT 0,1";
-        $stmt = $this->db->prepare($query);
-        $stmt->bindParam(":username", $username);
-        $stmt->execute();
-
-        return $stmt->fetch(PDO::FETCH_ASSOC);
-    }
-
-    // Function to create a new user and store in the database
-    public function createUser($username, $password)
-    {
-        $query = "INSERT INTO " . $this->table . " (username, password) VALUES (:username, :password)";
-        $stmt = $this->db->prepare($query);
-        $stmt->bindParam(":username", $username);
-        $stmt->bindParam(":password", $password);
-
-        if ($stmt->execute()) {
-            return $this->db->lastInsertId(); // Return the ID of the newly created user
-        }
-
-        return false;
-    }
-
-    // Function to check if a username already exists
+    // Check if the user already exists
     public function userExists($username)
     {
-        $query = "SELECT * FROM " . $this->table . " WHERE username = :username LIMIT 0,1";
-        $stmt = $this->db->prepare($query);
-        $stmt->bindParam(":username", $username);
-        $stmt->execute();
-
-        return $stmt->rowCount() > 0;
+        $stmt = $this->pdo->prepare("SELECT id FROM users WHERE username = ?");
+        $stmt->execute([$username]);
+        return $stmt->fetchColumn() !== false;
     }
 
-    // Function to store the JWT token for the user
+    // Create a new user in the database
+    public function createUser($username, $hashedPassword)
+    {
+        $stmt = $this->pdo->prepare("INSERT INTO users (username, password) VALUES (?, ?)");
+        $stmt->execute([$username, $hashedPassword]);
+        return $this->pdo->lastInsertId();  // Returns the last inserted user ID
+    }
+
+    // Store JWT token in the database for a user
     public function storeJwtToken($userId, $jwtToken)
     {
-        $query = "UPDATE " . $this->table . " SET jwt_token = :jwt_token WHERE id = :id";
-        $stmt = $this->db->prepare($query);
-        $stmt->bindParam(":jwt_token", $jwtToken);
-        $stmt->bindParam(":id", $userId);
-        $stmt->execute();
+        try {
+            $stmt = $this->pdo->prepare("UPDATE users SET jwt_token = ? WHERE id = ?");
+            $result = $stmt->execute([$jwtToken, $userId]);
+
+            if (!$result) {
+                throw new Exception("Failed to store JWT token in the database.");
+            }
+
+            echo "✅ JWT token stored successfully!";
+        } catch (PDOException $e) {
+            error_log("Database Error: " . $e->getMessage());
+            echo "❌ Database Error: " . $e->getMessage();
+        } catch (Exception $e) {
+            error_log("General Error: " . $e->getMessage());
+            echo "❌ Error: " . $e->getMessage();
+        }
     }
 
-    // Function to get the JWT token by user ID
-    public function getJwtTokenByUserId($userId)
-    {
-        $query = "SELECT jwt_token FROM " . $this->table . " WHERE id = :id";
-        $stmt = $this->db->prepare($query);
-        $stmt->bindParam(":id", $userId);
-        $stmt->execute();
-
-        return $stmt->fetch(PDO::FETCH_ASSOC)['jwt_token'] ?? null;
-    }
 }
 ?>

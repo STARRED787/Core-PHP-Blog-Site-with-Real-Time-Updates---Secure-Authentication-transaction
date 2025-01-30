@@ -1,5 +1,8 @@
 <?php
+error_reporting(E_ALL);
+ini_set('display_errors', 1);
 // app/controllers/UserController.php
+require_once '../config/JWT.php';  // Adjust the path based on your file structure
 
 class UserController
 {
@@ -14,52 +17,49 @@ class UserController
     public function signUp()
     {
         if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-            // Sanitize and validate input
-            $username = filter_var($_POST['username'], FILTER_SANITIZE_STRING);
-            $password = $_POST['password'];
+            try {
+                $username = filter_var($_POST['username']);
+                $password = $_POST['password'];
 
-            // Check if username is empty or too short
-            if (empty($username) || strlen($username) < 3) {
-                echo "Username must be at least 3 characters long!";
-                return;
-            }
+                if (empty($username) || strlen($username) < 3) {
+                    throw new Exception("Username must be at least 3 characters long!");
+                }
 
-            // Check if the password is strong
-            if (strlen($password) < 8) {
-                echo "Password must be at least 8 characters long!";
-                return;
-            }
+                if (strlen($password) < 8) {
+                    throw new Exception("Password must be at least 8 characters long!");
+                }
 
-            // Check if the user already exists
-            if ($this->userModel->userExists($username)) {
-                echo "Username already exists!";
-                return;
-            }
+                if ($this->userModel->userExists($username)) {
+                    throw new Exception("Username already exists!");
+                }
 
-            // Hash the password before storing it in the database
-            $hashedPassword = password_hash($password, PASSWORD_BCRYPT);
+                $hashedPassword = password_hash($password, PASSWORD_BCRYPT);
+                $userId = $this->userModel->createUser($username, $hashedPassword);
 
-            // Create the user in the database
-            $userId = $this->userModel->createUser($username, $hashedPassword);
+                if (!$userId) {
+                    throw new Exception("User registration failed!");
+                }
 
-            if ($userId) {
-                // Generate the JWT token for the newly created user
                 $jwtToken = JWTUtility::encode(['id' => $userId, 'username' => $username]);
 
-                // Store the JWT token in the database
+                if (!$jwtToken) {
+                    throw new Exception("Failed to generate JWT token!");
+                }
+
                 $this->userModel->storeJwtToken($userId, $jwtToken);
 
-                // Success message or redirect
-                echo "User successfully registered!";
-                header("Location: ../views/users/index.php"); // Redirect to the home or login page
+                echo "✅ User successfully registered!";
+                header("Location: ../views/users/index.php");
                 exit();
-            } else {
-                echo "An error occurred while registering the user.";
+
+            } catch (Exception $e) {
+                error_log("Sign-Up Error: " . $e->getMessage());
+                echo "❌ Error: " . $e->getMessage();
             }
         }
 
-        // If it's a GET request, show the sign-up form
-        include '../views/users/sign_up_form.php';  // Include the correct form
+
     }
+
 }
 ?>
