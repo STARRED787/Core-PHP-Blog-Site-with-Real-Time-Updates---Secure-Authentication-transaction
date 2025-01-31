@@ -12,14 +12,30 @@ class BlogModel
     public function createBlog($title, $content)
     {
         try {
+            error_log("Starting blog creation...");
+            
             $stmt = $this->pdo->prepare("
                 INSERT INTO blogs (title, content, status, created_at) 
                 VALUES (?, ?, 'draft', NOW())
             ");
-            $stmt->execute([$title, $content]);
-            return $this->pdo->lastInsertId();
+            
+            error_log("Executing query with title: $title and content: $content");
+            
+            if ($stmt->execute([$title, $content])) {
+                $id = $this->pdo->lastInsertId();
+                error_log("Blog created with ID: $id");
+                
+                $blog = $this->getBlogById($id);
+                error_log("Retrieved blog: " . print_r($blog, true));
+                
+                return $blog;
+            }
+            
+            error_log("Failed to execute blog creation query");
+            return false;
         } catch (PDOException $e) {
             error_log("Error creating blog: " . $e->getMessage());
+            error_log("Stack trace: " . $e->getTraceAsString());
             return false;
         }
     }
@@ -61,11 +77,14 @@ class BlogModel
 
     public function getBlogById($id)
     {
-        $query = "SELECT * FROM " . $this->table . " WHERE id = :id";
-        $stmt = $this->pdo->prepare($query);
-        $stmt->bindParam(':id', $id);
-        $stmt->execute();
-        return $stmt->fetch(PDO::FETCH_ASSOC);
+        try {
+            $stmt = $this->pdo->prepare("SELECT * FROM blogs WHERE id = ?");
+            $stmt->execute([$id]);
+            return $stmt->fetch(PDO::FETCH_ASSOC);
+        } catch (PDOException $e) {
+            error_log("Error getting blog by ID: " . $e->getMessage());
+            return false;
+        }
     }
 
     public function getPublishedBlogs()
