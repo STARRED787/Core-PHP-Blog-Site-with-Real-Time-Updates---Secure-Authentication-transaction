@@ -81,9 +81,11 @@ class AuthMiddleware
     public function isAdmin()
     {
         $user = $this->getUserFromToken();
-        return $user && $user['role'] === 'admin';
+        if (!$user) {
+            return false;
+        }
+        return isset($user['role']) && $user['role'] === 'admin';
     }
-
 
     public function redirectIfNotAuthenticated()
     {
@@ -99,7 +101,14 @@ class AuthMiddleware
         }
 
         if (!$this->isAdmin()) {
-            $this->sendForbiddenResponse();
+            if ($this->isApiRequest()) {
+                header('HTTP/1.1 403 Forbidden');
+                echo json_encode(['error' => 'Admin access required']);
+            } else {
+                $_SESSION['error'] = 'Admin access required';
+                header('Location: /KD Enterprise/blog-site/public/index.php');
+            }
+            exit();
         }
     }
 
@@ -115,17 +124,6 @@ class AuthMiddleware
         exit();
     }
 
-    private function sendForbiddenResponse()
-    {
-        $_SESSION['error'] = 'You do not have permission to access this page.';
-        if ($this->isApiRequest()) {
-            header('HTTP/1.0 403 Forbidden');
-            echo json_encode(['error' => 'Access forbidden']);
-        } else {
-            header('Location: /KD Enterprise/blog-site/views/users/index.php');
-        }
-        exit();
-    }
 
     private function isApiRequest()
     {
@@ -177,7 +175,7 @@ class AuthMiddleware
                         return;
                     }
 
-                    // Redirect to the appropriate dashboard
+                    // Redirect to the appropriate dashboard based on role
                     $user = $this->getUserFromToken();
                     if ($user['role'] === 'admin') {
                         header('Location: /KD Enterprise/blog-site/views/admin/index.php');
@@ -191,5 +189,15 @@ class AuthMiddleware
                 return;
             }
         }
+    }
+
+
+    /**
+     * Clear existing session and token when logging in with a different role.
+     */
+    public function clearSessionAndToken()
+    {
+        $this->clearAuthToken();
+        session_destroy();
     }
 }

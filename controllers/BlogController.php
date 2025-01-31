@@ -1,13 +1,15 @@
 <?php
-require_once 'BlogModel.php';
+require_once __DIR__ . '/../models/BlogModel.php';
 
 class BlogController
 {
     private $blogModel;
+    private $authMiddleware;
 
-    public function __construct($db)
+    public function __construct($blogModel, $authMiddleware)
     {
-        $this->blogModel = new BlogModel($db);
+        $this->blogModel = $blogModel;
+        $this->authMiddleware = $authMiddleware;
     }
 
     /**
@@ -15,42 +17,65 @@ class BlogController
      */
     public function handleRequest()
     {
-        if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-            $title = $_POST['title'];
-            $content = $_POST['content'];
+        try {
+            // Check if user is authenticated and admin
+            if (!$this->authMiddleware->isAuthenticated()) {
+                throw new Exception('User not authenticated');
+            }
 
-            // Create the blog post
-            $blogId = $this->createBlog($title, $content);
+            if (!$this->authMiddleware->isAdmin()) {
+                throw new Exception('Admin access required');
+            }
 
-            // Return a JSON response
-            echo json_encode([
-                "success" => true,
-                "message" => "Blog post created successfully!",
-                "blogId" => $blogId
-            ]);
+            $action = $_POST['action'] ?? '';
+
+            switch ($action) {
+                case 'create':
+                    $this->createBlog($_POST['title'] ?? '', $_POST['content'] ?? '');
+                    break;
+                default:
+                    throw new Exception('Invalid action');
+            }
+        } catch (Exception $e) {
+            if ($this->isApiRequest()) {
+                header('HTTP/1.1 400 Bad Request');
+                echo json_encode(['error' => $e->getMessage()]);
+            } else {
+                $_SESSION['error'] = $e->getMessage();
+                header('Location: /KD Enterprise/blog-site/views/admin/index.php');
+            }
+            exit();
         }
     }
 
     /**
      * Creates a blog post and sends an update to the WebSocket server.
      */
-    public function createBlog($title, $content)
+    private function createBlog($title, $content)
     {
-        // Create the blog post in the database
-        $blogId = $this->blogModel->createBlog($title, $content);
+        if (empty($title) || empty($content)) {
+            header('HTTP/1.1 400 Bad Request');
+            echo json_encode(['error' => 'Title and content are required']);
+            exit();
+        }
 
-        // Prepare data to send to WebSocket
-        $blogData = json_encode([
-            'id' => $blogId,
-            'title' => $title,
-            'content' => $content,
-            'created_at' => date('Y-m-d H:i:s')
-        ]);
-
-        // Send the update to the WebSocket server
-        $this->sendWebSocketUpdate($blogData);
-
-        return $blogId;
+        try {
+            $blog = $this->blogModel->createBlog($title, $content);
+            if ($blog) {
+                // Send success response with blog data
+                header('Content-Type: application/json');
+                echo json_encode([
+                    'success' => true,
+                    'blog' => $blog
+                ]);
+            } else {
+                throw new Exception('Failed to create blog');
+            }
+        } catch (Exception $e) {
+            header('HTTP/1.1 500 Internal Server Error');
+            echo json_encode(['error' => $e->getMessage()]);
+        }
+        exit();
     }
 
     /**
@@ -66,12 +91,29 @@ class BlogController
             error_log("Failed to connect to WebSocket server: $errstr ($errno)");
         }
     }
+
+    private function isApiRequest()
+    {
+        return (
+            isset($_SERVER['HTTP_ACCEPT']) &&
+            strpos($_SERVER['HTTP_ACCEPT'], 'application/json') !== false
+        ) ||
+            (
+                isset($_SERVER['CONTENT_TYPE']) &&
+                strpos($_SERVER['CONTENT_TYPE'], 'application/json') !== false
+            );
+    }
 }
 
 // Usage
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-    $db = new PDO('mysql:host=localhost;dbname=blogdb', 'root', '');
-    $blogController = new BlogController($db);
-    $blogController->handleRequest();
+    // Create database connection
+    $database = new Database();
+    $pdo = $database->getConnection();
+
+    // Initialize BlogModel with database connection
+    $blogModel = new BlogModel($pdo);
+    $blogs = $blogModel->getAllBlogs();
+
 }
 ?>
