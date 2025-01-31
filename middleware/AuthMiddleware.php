@@ -27,12 +27,12 @@ class AuthMiddleware
     {
         // First try to get from Authorization header
         $token = JWTUtility::getBearerToken();
-        
+
         // If not in header, try cookie
         if (!$token && isset($_COOKIE['token'])) {
             $token = $_COOKIE['token'];
         }
-        
+
         return $token;
     }
 
@@ -129,13 +129,13 @@ class AuthMiddleware
     private function isApiRequest()
     {
         return (
-            isset($_SERVER['HTTP_ACCEPT']) && 
+            isset($_SERVER['HTTP_ACCEPT']) &&
             strpos($_SERVER['HTTP_ACCEPT'], 'application/json') !== false
-        ) || 
-        (
-            isset($_SERVER['CONTENT_TYPE']) && 
-            strpos($_SERVER['CONTENT_TYPE'], 'application/json') !== false
-        );
+        ) ||
+            (
+                isset($_SERVER['CONTENT_TYPE']) &&
+                strpos($_SERVER['CONTENT_TYPE'], 'application/json') !== false
+            );
     }
 
     private function checkTokenExpiration()
