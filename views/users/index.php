@@ -5,6 +5,7 @@ require_once __DIR__ . '/../../config/database.php';
 require_once __DIR__ . '/../../config/JWT.php';
 require_once __DIR__ . '/../../middleware/AuthMiddleware.php';
 require_once __DIR__ . '/../../models/User.php';
+require_once __DIR__ . '/../../models/BlogModel.php';
 
 // Create database connection
 $database = new Database();
@@ -12,6 +13,9 @@ $pdo = $database->getConnection();
 
 // Initialize User model
 $userModel = new User($pdo);
+
+// Initialize BlogModel
+$blogModel = new BlogModel($pdo);
 
 // Initialize AuthMiddleware with both PDO and UserModel
 $authMiddleware = new AuthMiddleware($pdo, $userModel);
@@ -143,23 +147,13 @@ $user = $authMiddleware->getUser();
 
     <div class="container mt-4">
         <h1>Latest Blogs</h1>
-        <div id="blogContainer">
-            <?php
-            require_once __DIR__ . '/../../models/BlogModel.php';
-
-            // Create database connection
-            $database = new Database();
-            $pdo = $database->getConnection();
-
-            // Initialize BlogModel with database connection
-            $blogModel = new BlogModel($pdo);
-            $blogs = $blogModel->getPublishedBlogs();
-
-            if (empty($blogs)) {
-                echo '<div class="alert alert-info">No blogs available at the moment.</div>';
-            } else {
-                // Display blogs
-                foreach ($blogs as $blog): ?>
+        <?php 
+        $blogs = $blogModel->getAllBlogs();
+        if (empty($blogs)): ?>
+            <div class="alert alert-info">No blogs available at the moment.</div>
+        <?php else: ?>
+            <div id="blogContainer">
+                <?php foreach ($blogs as $blog): ?>
                     <div class="card mb-3" data-blog-id="<?php echo $blog['id']; ?>">
                         <div class="card-body">
                             <h5 class="card-title"><?php echo htmlspecialchars($blog['title']); ?></h5>
@@ -169,10 +163,9 @@ $user = $authMiddleware->getUser();
                             </p>
                         </div>
                     </div>
-                <?php endforeach;
-            }
-            ?>
-        </div>
+                <?php endforeach; ?>
+            </div>
+        <?php endif; ?>
     </div>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
 </body>

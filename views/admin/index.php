@@ -70,41 +70,47 @@ $blogModel = new BlogModel($pdo);
         </button>
 
         <!-- Table to display blogs -->
-        <table class="table table-bordered">
-            <thead>
-                <tr>
-                    <th>ID</th>
-                    <th>Title</th>
-                    <th>Content</th>
-                    <th>Created At</th>
-                    <th>Actions</th>
-                </tr>
-            </thead>
-            <tbody id="blogTableBody">
-                <?php foreach ($blogModel->getAllBlogs() as $blog): ?>
-                    <tr data-blog-id="<?php echo $blog['id']; ?>">
-                        <td><?php echo htmlspecialchars($blog['id']); ?></td>
-                        <td><?php echo htmlspecialchars($blog['title']); ?></td>
-                        <td><?php echo htmlspecialchars($blog['content']); ?></td>
-                        <td><?php echo $blog['created_at']; ?></td>
-                        <td>
-                            <button class="btn btn-sm btn-primary edit-blog" 
-                                    data-bs-toggle="modal" 
-                                    data-bs-target="#editBlogModal"
-                                    data-blog-id="<?php echo $blog['id']; ?>"
-                                    data-blog-title="<?php echo htmlspecialchars($blog['title']); ?>"
-                                    data-blog-content="<?php echo htmlspecialchars($blog['content']); ?>">
-                                Edit
-                            </button>
-                            <button class="btn btn-sm btn-danger delete-blog" 
-                                    data-blog-id="<?php echo $blog['id']; ?>">
-                                Delete
-                            </button>
-                        </td>
+        <?php 
+        $blogs = $blogModel->getAllBlogs();
+        if (empty($blogs)): ?>
+            <div class="alert alert-info">No blogs available. Click "Add New Blog" to create one.</div>
+        <?php else: ?>
+            <table class="table table-bordered">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Title</th>
+                        <th>Content</th>
+                        <th>Created At</th>
+                        <th>Actions</th>
                     </tr>
-                <?php endforeach; ?>
-            </tbody>
-        </table>
+                </thead>
+                <tbody id="blogTableBody">
+                    <?php foreach ($blogs as $blog): ?>
+                        <tr data-blog-id="<?php echo $blog['id']; ?>">
+                            <td><?php echo htmlspecialchars($blog['id']); ?></td>
+                            <td><?php echo htmlspecialchars($blog['title']); ?></td>
+                            <td><?php echo htmlspecialchars($blog['content']); ?></td>
+                            <td><?php echo $blog['created_at']; ?></td>
+                            <td>
+                                <button class="btn btn-sm btn-primary edit-blog" 
+                                        data-bs-toggle="modal" 
+                                        data-bs-target="#editBlogModal"
+                                        data-blog-id="<?php echo $blog['id']; ?>"
+                                        data-blog-title="<?php echo htmlspecialchars($blog['title']); ?>"
+                                        data-blog-content="<?php echo htmlspecialchars($blog['content']); ?>">
+                                    Edit
+                                </button>
+                                <button class="btn btn-sm btn-danger delete-blog" 
+                                        data-blog-id="<?php echo $blog['id']; ?>">
+                                    Delete
+                                </button>
+                            </td>
+                        </tr>
+                    <?php endforeach; ?>
+                </tbody>
+            </table>
+        <?php endif; ?>
 
         <!-- Add Blog Modal -->
         <div class="modal fade" id="addBlogModal" tabindex="-1" aria-labelledby="addBlogModalLabel" aria-hidden="true">
@@ -143,8 +149,8 @@ $blogModel = new BlogModel($pdo);
                         <h5 class="modal-title" id="editBlogModalLabel">Edit Blog</h5>
                         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                     </div>
-                    <div class="modal-body">
-                        <form id="editBlogForm">
+                    <form id="editBlogForm">
+                        <div class="modal-body">
                             <input type="hidden" id="editBlogId" name="id">
                             <input type="hidden" name="action" value="update">
                             <div class="mb-3">
@@ -155,12 +161,12 @@ $blogModel = new BlogModel($pdo);
                                 <label for="editBlogContent" class="form-label">Content</label>
                                 <textarea class="form-control" id="editBlogContent" name="content" rows="3" required></textarea>
                             </div>
-                            <div class="modal-footer">
-                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-                                <button type="submit" class="btn btn-primary">Update Blog</button>
-                            </div>
-                        </form>
-                    </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                            <button type="submit" class="btn btn-primary">Update Blog</button>
+                        </div>
+                    </form>
                 </div>
             </div>
         </div>
@@ -216,6 +222,28 @@ $blogModel = new BlogModel($pdo);
 
         // Table update functions
         function addBlogToTable(blog) {
+            const container = document.querySelector('.container.mt-4');
+            const alertDiv = container.querySelector('.alert');
+            
+            // If this is the first blog, replace the alert with a table
+            if (alertDiv) {
+                const tableHTML = `
+                    <table class="table table-bordered">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Title</th>
+                                <th>Content</th>
+                                <th>Created At</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="blogTableBody"></tbody>
+                    </table>
+                `;
+                alertDiv.outerHTML = tableHTML;
+            }
+
             const tbody = document.getElementById('blogTableBody');
             const row = createBlogRow(blog);
             tbody.insertAdjacentHTML('afterbegin', row);
@@ -231,9 +259,17 @@ $blogModel = new BlogModel($pdo);
         }
 
         function removeBlogFromTable(blogId) {
+            const tbody = document.getElementById('blogTableBody');
             const row = document.querySelector(`tr[data-blog-id="${blogId}"]`);
             if (row) {
                 row.remove();
+                
+                // If no more blogs, show the alert
+                if (tbody.children.length === 0) {
+                    const table = tbody.closest('table');
+                    const alertHTML = '<div class="alert alert-info">No blogs available. Click "Add New Blog" to create one.</div>';
+                    table.outerHTML = alertHTML;
+                }
             }
         }
 

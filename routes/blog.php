@@ -49,14 +49,16 @@ try {
         throw new Exception('Admin access required');
     }
 
-    $action = $_POST['action'] ?? '';
+    // Get the action from POST or JSON input
+    $input = file_get_contents('php://input');
+    $jsonData = json_decode($input, true);
+    
+    $action = $_POST['action'] ?? $jsonData['action'] ?? '';
     
     switch ($action) {
         case 'create':
             $title = $_POST['title'] ?? '';
             $content = $_POST['content'] ?? '';
-            
-            error_log("Received create request - Title: $title, Content: $content");
             
             if (empty($title) || empty($content)) {
                 throw new Exception('Title and content are required');
@@ -64,21 +66,16 @@ try {
             
             $blog = $blogModel->createBlog($title, $content);
             if (!$blog) {
-                error_log("Blog creation failed in model");
                 throw new Exception('Failed to create blog in database');
             }
             
-            error_log("Blog created successfully: " . print_r($blog, true));
             echo json_encode(['success' => true, 'blog' => $blog]);
             break;
             
         case 'update':
-            $input = file_get_contents('php://input');
-            $data = json_decode($input, true);
-            
-            $id = $data['id'] ?? '';
-            $title = $data['title'] ?? '';
-            $content = $data['content'] ?? '';
+            $id = $jsonData['id'] ?? '';
+            $title = $jsonData['title'] ?? '';
+            $content = $jsonData['content'] ?? '';
             
             if (empty($id) || empty($title) || empty($content)) {
                 throw new Exception('ID, title and content are required');
@@ -93,10 +90,8 @@ try {
             break;
             
         case 'delete':
-            $input = file_get_contents('php://input');
-            $data = json_decode($input, true);
+            $id = $jsonData['id'] ?? '';
             
-            $id = $data['id'] ?? '';
             if (empty($id)) {
                 throw new Exception('ID is required');
             }
@@ -126,7 +121,7 @@ try {
             break;
             
         default:
-            throw new Exception('Invalid action');
+            throw new Exception('Invalid action: ' . $action);
     }
 } catch (Exception $e) {
     error_log("Error in blog.php: " . $e->getMessage());
