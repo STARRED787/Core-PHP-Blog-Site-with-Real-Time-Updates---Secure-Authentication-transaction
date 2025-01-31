@@ -88,6 +88,13 @@ $user = $authMiddleware->getUser();
 
         function addBlogToList(blog) {
             const container = document.getElementById('blogContainer');
+            const noBlogs = document.querySelector('.alert');
+            
+            if (noBlogs) {
+                noBlogs.remove();
+                container.innerHTML = '';
+            }
+            
             const blogElement = createBlogElement(blog);
             container.insertAdjacentHTML('afterbegin', blogElement);
         }
@@ -101,7 +108,15 @@ $user = $authMiddleware->getUser();
 
         function removeBlogFromList(blogId) {
             const element = document.querySelector(`[data-blog-id="${blogId}"]`);
-            if (element) element.remove();
+            if (element) {
+                element.remove();
+                
+                // If no more blogs, show message
+                const container = document.getElementById('blogContainer');
+                if (!container.children.length) {
+                    container.innerHTML = '<div class="alert alert-info">No blogs available at the moment.</div>';
+                }
+            }
         }
 
         function createBlogElement(blog) {
@@ -110,7 +125,9 @@ $user = $authMiddleware->getUser();
                     <div class="card-body">
                         <h5 class="card-title">${escapeHtml(blog.title)}</h5>
                         <p class="card-text">${escapeHtml(blog.content)}</p>
-                        <p class="card-text"><small class="text-muted">Created at: ${blog.created_at}</small></p>
+                        <p class="card-text">
+                            <small class="text-muted">Created at: ${blog.created_at}</small>
+                        </p>
                     </div>
                 </div>
             `;
@@ -126,7 +143,9 @@ $user = $authMiddleware->getUser();
         }
 
         // Initialize WebSocket connection
-        connectWebSocket();
+        document.addEventListener('DOMContentLoaded', function() {
+            connectWebSocket();
+        });
     </script>
 
 </head>
