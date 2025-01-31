@@ -31,8 +31,12 @@ $user = $authMiddleware->getUser();
     <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
         <div class="container">
             <a class="navbar-brand" href="#">Admin Dashboard</a>
-            <span class="nav-item nav-link text-light">Welcome,
-                <?php echo htmlspecialchars($user['username']); ?></span>
+            <div class="navbar-nav ms-auto">
+                <span class="nav-item nav-link text-light">Welcome,
+                    <?php echo htmlspecialchars($user['username']); ?></span>
+                <a class="nav-link" href="/KD Enterprise/blog-site/auth/logout.php">Logout</a>
+            </div>
+
         </div>
     </nav>
 
