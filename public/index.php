@@ -1,21 +1,23 @@
 <?php
-session_start();
 require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../middleware/AuthMiddleware.php';
+require_once __DIR__ . '/../models/User.php';
 
 // Create database connection
 $database = new Database();
 $pdo = $database->getConnection();
 
+// Initialize User model
+$userModel = new User($pdo);
+
 // Initialize AuthMiddleware
-$authMiddleware = new AuthMiddleware($pdo);
+$authMiddleware = new AuthMiddleware($pdo, $userModel);
 
 // Prevent re-signin if user has valid token
 $authMiddleware->preventReSignIn();
 
-// Get error message if any
-$error = $_SESSION['error'] ?? '';
-unset($_SESSION['error']);
+// Get error from URL parameter instead of session
+$error = isset($_GET['error']) ? urldecode($_GET['error']) : '';
 ?>
 
 <!DOCTYPE html>
@@ -31,15 +33,19 @@ unset($_SESSION['error']);
 <body>
     <div class="container mt-5">
         <h2 class="text-center mb-4">Sign In</h2>
+        <?php if ($error): ?>
+            <div class="alert alert-danger">
+                <?php echo htmlspecialchars($error); ?>
+            </div>
+        <?php endif; ?>
         <form action="../routes/login.php" method="POST">
             <div class="mb-3">
                 <label for="username" class="form-label">Username</label>
-                <input type="text" name="username" class="form-control" id="username" placeholder="Username" required>
+                <input type="text" name="username" class="form-control" id="username" required>
             </div>
             <div class="mb-3">
                 <label for="password" class="form-label">Password</label>
-                <input type="password" name="password" class="form-control" id="password" placeholder="Password"
-                    required>
+                <input type="password" name="password" class="form-control" id="password" required>
             </div>
             <button type="submit" class="btn btn-primary w-100">Sign In</button>
         </form>

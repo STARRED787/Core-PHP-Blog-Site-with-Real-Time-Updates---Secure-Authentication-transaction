@@ -27,23 +27,38 @@ class BlogController
                 throw new Exception('Admin access required');
             }
 
-            $action = $_POST['action'] ?? '';
+            $contentType = $_SERVER["CONTENT_TYPE"] ?? '';
+            
+            // Handle JSON requests
+            if (strpos($contentType, 'application/json') !== false) {
+                $data = json_decode(file_get_contents('php://input'), true);
+                if (json_last_error() !== JSON_ERROR_NONE) {
+                    throw new Exception('Invalid JSON data');
+                }
+                $action = $data['action'] ?? '';
+            } else {
+                // Handle form data
+                $action = $_POST['action'] ?? '';
+                $data = $_POST;
+            }
 
             switch ($action) {
                 case 'create':
-                    $this->createBlog($_POST['title'] ?? '', $_POST['content'] ?? '');
+                    $this->createBlog($data['title'] ?? '', $data['content'] ?? '');
+                    break;
+                case 'update':
+                    $this->updateBlog($data['id'] ?? '', $data['title'] ?? '', $data['content'] ?? '');
+                    break;
+                case 'delete':
+                    $this->deleteBlog($data['id'] ?? '');
                     break;
                 default:
                     throw new Exception('Invalid action');
             }
         } catch (Exception $e) {
-            if ($this->isApiRequest()) {
-                header('HTTP/1.1 400 Bad Request');
-                echo json_encode(['error' => $e->getMessage()]);
-            } else {
-                $_SESSION['error'] = $e->getMessage();
-                header('Location: /KD Enterprise/blog-site/views/admin/index.php');
-            }
+            header('Content-Type: application/json');
+            http_response_code(400);
+            echo json_encode(['error' => $e->getMessage()]);
             exit();
         }
     }
@@ -76,6 +91,61 @@ class BlogController
             echo json_encode(['error' => $e->getMessage()]);
         }
         exit();
+    }
+
+    /**
+     * Updates a blog post and sends an update to the WebSocket server.
+     */
+    private function updateBlog($id, $title, $content)
+    {
+        // Validate input
+        if (empty($id)) {
+            throw new Exception('Blog ID is required');
+        }
+        if (empty($title)) {
+            throw new Exception('Title is required');
+        }
+        if (empty($content)) {
+            throw new Exception('Content is required');
+        }
+
+        try {
+            $blog = $this->blogModel->updateBlog($id, $title, $content);
+            if ($blog) {
+                header('Content-Type: application/json');
+                echo json_encode([
+                    'success' => true,
+                    'blog' => $blog
+                ]);
+            } else {
+                throw new Exception('Failed to update blog');
+            }
+        } catch (Exception $e) {
+            header('Content-Type: application/json');
+            http_response_code(400);
+            echo json_encode(['error' => $e->getMessage()]);
+            exit();
+        }
+    }
+
+    /**
+     * Deletes a blog post and sends an update to the WebSocket server.
+     */
+    private function deleteBlog($id)
+    {
+        if (empty($id)) {
+            throw new Exception('Blog ID is required');
+        }
+
+        if ($this->blogModel->deleteBlog($id)) {
+            header('Content-Type: application/json');
+            echo json_encode([
+                'success' => true,
+                'id' => $id
+            ]);
+        } else {
+            throw new Exception('Failed to delete blog');
+        }
     }
 
     /**

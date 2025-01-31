@@ -8,13 +8,17 @@ require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../middleware/AuthMiddleware.php';
 require_once __DIR__ . '/../controllers/BlogController.php';
 require_once __DIR__ . '/../models/BlogModel.php';
+require_once __DIR__ . '/../models/User.php';
 
 // Create database connection
 $database = new Database();
 $pdo = $database->getConnection();
 
+// Initialize User model
+$userModel = new User($pdo);
+
 // Initialize AuthMiddleware
-$authMiddleware = new AuthMiddleware($pdo);
+$authMiddleware = new AuthMiddleware($pdo, $userModel);
 
 // Debug output
 if (!$authMiddleware->isAuthenticated()) {
@@ -29,6 +33,8 @@ $blogModel = new BlogModel($pdo);
 
 // Initialize BlogController
 $blogController = new BlogController($blogModel, $authMiddleware);
+
+header('Content-Type: application/json');
 
 // Handle the request
 $blogController->handleRequest();

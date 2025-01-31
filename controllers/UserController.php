@@ -15,7 +15,7 @@ class UserController
     public function __construct($userModel, $pdo)
     {
         $this->userModel = $userModel;
-        $this->authMiddleware = new AuthMiddleware($pdo);
+        $this->authMiddleware = new AuthMiddleware($pdo, $userModel);
     }
 
     // Handle user signup
@@ -73,54 +73,52 @@ class UserController
     public function signIn()
     {
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-            $username = $_POST['username'] ?? '';
-            $password = $_POST['password'] ?? '';
+            try {
+                $username = $_POST['username'] ?? '';
+                $password = $_POST['password'] ?? '';
 
-            $user = $this->userModel->getUserByUsername($username);
-            
-            if ($user && password_verify($password, $user['password'])) {
-                // Create JWT payload
+                $user = $this->userModel->getUserByUsername($username);
+                
+                if (!$user || !password_verify($password, $user['password'])) {
+                    throw new \Exception('Invalid credentials');
+                }
+
+                // Create JWT payload with 1-hour expiration
                 $payload = [
                     'id' => $user['id'],
                     'username' => $user['username'],
-                    'role' => $user['role']
+                    'role' => $user['role'],
+                    'exp' => time() + 3600 // 1 hour
                 ];
                 
                 // Generate JWT token
                 $token = JWTUtility::encode($payload);
                 
-                // Set token in cookie and header
-                setcookie('token', $token, time() + (86400 * 30), "/", "", true, true); // Secure, HttpOnly
-                header('Authorization: Bearer ' . $token);
-                
-                if ($this->isApiRequest()) {
-                    header('Content-Type: application/json');
-                    echo json_encode([
-                        'success' => true,
-                        'token' => $token,
-                        'user' => [
-                            'id' => $user['id'],
-                            'username' => $user['username'],
-                            'role' => $user['role']
-                        ]
-                    ]);
+                // Store token in database
+                if (!$this->userModel->storeUserToken($user['id'], $token)) {
+                    throw new \Exception('Authentication failed');
+                }
+
+                // Set secure cookie with 1-hour expiration
+                $cookieName = 'token_' . $user['id'];
+                setcookie($cookieName, $token, [
+                    'expires' => time() + 3600, // 1 hour
+                    'path' => '/',
+                    'secure' => true,
+                    'httponly' => true,
+                    'samesite' => 'Strict'
+                ]);
+
+                // Redirect based on role
+                if ($user['role'] === 'admin') {
+                    header('Location: /KD Enterprise/blog-site/views/admin/index.php');
                 } else {
-                    // Redirect based on role
-                    if ($user['role'] === 'admin') {
-                        header('Location: /KD Enterprise/blog-site/views/admin/index.php');
-                    } else {
-                        header('Location: /KD Enterprise/blog-site/views/users/index.php');
-                    }
+                    header('Location: /KD Enterprise/blog-site/views/users/index.php');
                 }
                 exit();
-            } else {
-                if ($this->isApiRequest()) {
-                    header('HTTP/1.0 401 Unauthorized');
-                    echo json_encode(['error' => 'Invalid credentials']);
-                } else {
-                    $_SESSION['error'] = 'Invalid credentials';
-                    header('Location: /KD Enterprise/blog-site/public/index.php');
-                }
+
+            } catch (\Exception $e) {
+                header('Location: /KD Enterprise/blog-site/public/index.php?error=' . urlencode($e->getMessage()));
                 exit();
             }
         }
@@ -141,11 +139,29 @@ class UserController
     // Handle user logout
     public function logout()
     {
-        // Clear the JWT cookie
-        setcookie("jwt_token", "", time() - 3600, "/", "", false, true); // Expire the cookie
+        if (isset($_SESSION['user_id'])) {
+            // Get user's token cookie name
+            $cookieName = 'token_' . $_SESSION['user_id'];
+            
+            // Invalidate token in database
+            $this->userModel->invalidateUserToken($_SESSION['user_id']);
 
-        // Redirect to login page
-        header("Location: ../public/login.php");
+            // Clear the specific user's cookie
+            setcookie($cookieName, '', [
+                'expires' => time() - 3600,
+                'path' => '/',
+                'secure' => true,
+                'httponly' => true,
+                'samesite' => 'Strict'
+            ]);
+        }
+
+        // Clear session
+        session_unset();
+        session_destroy();
+        session_start();
+
+        header('Location: /KD Enterprise/blog-site/public/index.php');
         exit();
     }
 

@@ -11,17 +11,17 @@ class BlogModel
 
     public function createBlog($title, $content)
     {
-        $query = "INSERT INTO " . $this->table . " (title, content, created_at) VALUES (:title, :content, NOW())";
-        $stmt = $this->pdo->prepare($query);
-        
-        $stmt->bindParam(':title', $title);
-        $stmt->bindParam(':content', $content);
-        
-        if ($stmt->execute()) {
-            $id = $this->pdo->lastInsertId();
-            return $this->getBlogById($id);
+        try {
+            $stmt = $this->pdo->prepare("
+                INSERT INTO blogs (title, content, status, created_at) 
+                VALUES (?, ?, 'draft', NOW())
+            ");
+            $stmt->execute([$title, $content]);
+            return $this->pdo->lastInsertId();
+        } catch (PDOException $e) {
+            error_log("Error creating blog: " . $e->getMessage());
+            return false;
         }
-        return false;
     }
 
     public function updateBlog($id, $title, $content)
@@ -49,10 +49,14 @@ class BlogModel
 
     public function getAllBlogs()
     {
-        $query = "SELECT * FROM " . $this->table . " ORDER BY created_at DESC";
-        $stmt = $this->pdo->prepare($query);
-        $stmt->execute();
-        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        try {
+            $stmt = $this->pdo->prepare("SELECT * FROM blogs ORDER BY created_at DESC");
+            $stmt->execute();
+            return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        } catch (PDOException $e) {
+            error_log("Error getting all blogs: " . $e->getMessage());
+            return [];
+        }
     }
 
     public function getBlogById($id)
@@ -62,5 +66,28 @@ class BlogModel
         $stmt->bindParam(':id', $id);
         $stmt->execute();
         return $stmt->fetch(PDO::FETCH_ASSOC);
+    }
+
+    public function getPublishedBlogs()
+    {
+        try {
+            $stmt = $this->pdo->prepare("SELECT * FROM blogs WHERE status = 'published' ORDER BY created_at DESC");
+            $stmt->execute();
+            return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        } catch (PDOException $e) {
+            error_log("Error getting published blogs: " . $e->getMessage());
+            return [];
+        }
+    }
+
+    public function updateBlogStatus($id, $status)
+    {
+        try {
+            $stmt = $this->pdo->prepare("UPDATE blogs SET status = ? WHERE id = ?");
+            return $stmt->execute([$status, $id]);
+        } catch (PDOException $e) {
+            error_log("Error updating blog status: " . $e->getMessage());
+            return false;
+        }
     }
 }

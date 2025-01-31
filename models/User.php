@@ -36,23 +36,72 @@ class User
     }
 
     // Store JWT token in the database for a user
-    public function storeJwtToken($userId, $jwtToken)
+    public function storeUserToken($userId, $token)
     {
         try {
-            $stmt = $this->pdo->prepare("UPDATE " . $this->table . " SET jwt_token = ? WHERE id = ?");
-            $result = $stmt->execute([$jwtToken, $userId]);
-
-            if (!$result) {
-                throw new Exception("Failed to store JWT token in the database.");
-            }
-
-            echo "✅ JWT token stored successfully!";
+            $stmt = $this->pdo->prepare("UPDATE {$this->table} SET jwt_token = ?, last_login = NOW() WHERE id = ?");
+            return $stmt->execute([$token, $userId]);
         } catch (PDOException $e) {
-            error_log("Database Error: " . $e->getMessage());
-            echo "❌ Database Error: " . $e->getMessage();
-        } catch (Exception $e) {
-            error_log("General Error: " . $e->getMessage());
-            echo "❌ Error: " . $e->getMessage();
+            error_log("Error storing token: " . $e->getMessage());
+            return false;
+        }
+    }
+
+    public function invalidateUserToken($userId)
+    {
+        try {
+            // Invalidate all tokens for this user
+            $stmt = $this->pdo->prepare("
+                UPDATE {$this->table} 
+                SET jwt_token = NULL, 
+                    last_login = NULL 
+                WHERE id = ?
+            ");
+            return $stmt->execute([$userId]);
+        } catch (PDOException $e) {
+            error_log("Error invalidating token: " . $e->getMessage());
+            return false;
+        }
+    }
+
+    public function validateUserToken($userId, $token)
+    {
+        try {
+            $stmt = $this->pdo->prepare("
+                SELECT * FROM {$this->table} 
+                WHERE id = ? 
+                AND jwt_token = ? 
+                AND jwt_token IS NOT NULL 
+                AND last_login >= DATE_SUB(NOW(), INTERVAL 1 HOUR)
+                AND role = (
+                    SELECT role FROM {$this->table} 
+                    WHERE id = ? AND jwt_token = ?
+                )
+            ");
+            $stmt->execute([$userId, $token, $userId, $token]);
+            $user = $stmt->fetch(PDO::FETCH_ASSOC);
+            
+            if (!$user) {
+                $this->invalidateUserToken($userId);
+                return false;
+            }
+            
+            return $user;
+        } catch (PDOException $e) {
+            error_log("Error validating token: " . $e->getMessage());
+            return false;
+        }
+    }
+
+    public function getUserByToken($token)
+    {
+        try {
+            $stmt = $this->pdo->prepare("SELECT * FROM {$this->table} WHERE jwt_token = ?");
+            $stmt->execute([$token]);
+            return $stmt->fetch(PDO::FETCH_ASSOC);
+        } catch (PDOException $e) {
+            error_log("Error getting user by token: " . $e->getMessage());
+            return false;
         }
     }
 

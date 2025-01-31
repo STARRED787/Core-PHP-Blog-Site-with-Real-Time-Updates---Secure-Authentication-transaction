@@ -38,11 +38,18 @@ class JWTUtility
         $issuedAt = time();
         $expire = $issuedAt + self::$tokenExpiration;
 
-        $tokenPayload = array(
-            "iat" => $issuedAt,
-            "exp" => $expire,
-            "data" => $payload
-        );
+        // Ensure required fields
+        if (!isset($payload['id']) || !isset($payload['role'])) {
+            throw new \Exception('Missing required payload fields');
+        }
+
+        $tokenPayload = [
+            'id' => $payload['id'],
+            'username' => $payload['username'],
+            'role' => $payload['role'],
+            'iat' => $issuedAt,
+            'exp' => $expire
+        ];
 
         return JWT::encode($tokenPayload, self::$secretKey, self::$algorithm);
     }
@@ -52,11 +59,17 @@ class JWTUtility
         self::initialize();
         try {
             $decoded = JWT::decode($token, new Key(self::$secretKey, self::$algorithm));
-            if ($decoded->exp < time()) {
+            if (isset($decoded->exp) && $decoded->exp < time()) {
                 return null; // Token has expired
             }
-            return $decoded->data;
-        } catch (Exception $e) {
+            return (object)[
+                'id' => $decoded->id,
+                'username' => $decoded->username,
+                'role' => $decoded->role,
+                'exp' => $decoded->exp
+            ];
+        } catch (\Exception $e) {
+            error_log("JWT decode error: " . $e->getMessage());
             return null;
         }
     }
@@ -75,7 +88,7 @@ class JWTUtility
         try {
             $decoded = JWT::decode($token, new Key(self::$secretKey, self::$algorithm));
             return $decoded->exp < time();
-        } catch (Exception $e) {
+        } catch (\Exception $e) {
             return true;
         }
     }

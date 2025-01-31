@@ -4,16 +4,23 @@ require_once __DIR__ . '/../../vendor/autoload.php';
 require_once __DIR__ . '/../../config/database.php';
 require_once __DIR__ . '/../../config/JWT.php';
 require_once __DIR__ . '/../../middleware/AuthMiddleware.php';
-
+require_once __DIR__ . '/../../models/User.php';
 
 // Create database connection
 $database = new Database();
 $pdo = $database->getConnection();
 
-// Initialize and check user authentication
-$authMiddleware = new AuthMiddleware($pdo);
-$authMiddleware->redirectIfNotAuthenticated();
+// Initialize User model
+$userModel = new User($pdo);
 
+// Initialize AuthMiddleware with both PDO and UserModel
+$authMiddleware = new AuthMiddleware($pdo, $userModel);
+
+// Check authentication
+if (!$authMiddleware->isAuthenticated()) {
+    header('Location: /KD Enterprise/blog-site/public/index.php');
+    exit();
+}
 
 // Get user data
 $user = $authMiddleware->getUser();
@@ -48,13 +55,13 @@ $user = $authMiddleware->getUser();
                     
                     switch(data.type) {
                         case 'create':
-                            addBlogPost(data.blog);
+                            addBlogToList(data.blog);
                             break;
                         case 'update':
-                            updateBlogPost(data.blog);
+                            updateBlogInList(data.blog);
                             break;
                         case 'delete':
-                            removeBlogPost(data.blogId);
+                            removeBlogFromList(data.blogId);
                             break;
                     }
                 } catch (error) {
@@ -67,47 +74,42 @@ $user = $authMiddleware->getUser();
             };
             
             ws.onclose = function() {
-                console.log('WebSocket disconnected.');
+                console.log('WebSocket disconnected');
                 if (reconnectAttempts < maxReconnectAttempts) {
                     reconnectAttempts++;
-                    console.log(`Attempting to reconnect (${reconnectAttempts}/${maxReconnectAttempts})...`);
                     setTimeout(connectWebSocket, 5000);
-                } else {
-                    console.log('Max reconnection attempts reached.');
                 }
             };
         }
 
-        function addBlogPost(blog) {
-            const blogsContainer = document.getElementById('blogs');
-            const blogHtml = `
-                <div class="blog-post" data-blog-id="${blog.id}">
-                    <h3>${escapeHtml(blog.title)}</h3>
-                    <p>${escapeHtml(blog.content)}</p>
-                    <small>Posted on: ${blog.created_at}</small>
-                    <hr>
+        function addBlogToList(blog) {
+            const container = document.getElementById('blogContainer');
+            const blogElement = createBlogElement(blog);
+            container.insertAdjacentHTML('afterbegin', blogElement);
+        }
+
+        function updateBlogInList(blog) {
+            const element = document.querySelector(`[data-blog-id="${blog.id}"]`);
+            if (element) {
+                element.outerHTML = createBlogElement(blog);
+            }
+        }
+
+        function removeBlogFromList(blogId) {
+            const element = document.querySelector(`[data-blog-id="${blogId}"]`);
+            if (element) element.remove();
+        }
+
+        function createBlogElement(blog) {
+            return `
+                <div class="card mb-3" data-blog-id="${blog.id}">
+                    <div class="card-body">
+                        <h5 class="card-title">${escapeHtml(blog.title)}</h5>
+                        <p class="card-text">${escapeHtml(blog.content)}</p>
+                        <p class="card-text"><small class="text-muted">Created at: ${blog.created_at}</small></p>
+                    </div>
                 </div>
             `;
-            blogsContainer.insertAdjacentHTML('afterbegin', blogHtml);
-        }
-
-        function updateBlogPost(blog) {
-            const existingPost = document.querySelector(`.blog-post[data-blog-id="${blog.id}"]`);
-            if (existingPost) {
-                existingPost.innerHTML = `
-                    <h3>${escapeHtml(blog.title)}</h3>
-                    <p>${escapeHtml(blog.content)}</p>
-                    <small>Posted on: ${blog.created_at}</small>
-                    <hr>
-                `;
-            }
-        }
-
-        function removeBlogPost(blogId) {
-            const post = document.querySelector(`.blog-post[data-blog-id="${blogId}"]`);
-            if (post) {
-                post.remove();
-            }
         }
 
         function escapeHtml(unsafe) {
@@ -119,7 +121,7 @@ $user = $authMiddleware->getUser();
                 .replace(/'/g, "&#039;");
         }
 
-        // Start WebSocket connection
+        // Initialize WebSocket connection
         connectWebSocket();
     </script>
 
@@ -141,7 +143,7 @@ $user = $authMiddleware->getUser();
 
     <div class="container mt-4">
         <h1>Latest Blogs</h1>
-        <div id="blogs">
+        <div id="blogContainer">
             <?php
             require_once __DIR__ . '/../../models/BlogModel.php';
 
@@ -151,17 +153,25 @@ $user = $authMiddleware->getUser();
 
             // Initialize BlogModel with database connection
             $blogModel = new BlogModel($pdo);
-            $blogs = $blogModel->getAllBlogs();
+            $blogs = $blogModel->getPublishedBlogs();
 
-            // Display blogs
-            foreach ($blogs as $blog): ?>
-                <div class="blog-post" data-blog-id="<?php echo $blog['id']; ?>">
-                    <h3><?php echo htmlspecialchars($blog['title']); ?></h3>
-                    <p><?php echo htmlspecialchars($blog['content']); ?></p>
-                    <small>Posted on: <?php echo htmlspecialchars($blog['created_at']); ?></small>
-                    <hr>
-                </div>
-            <?php endforeach; ?>
+            if (empty($blogs)) {
+                echo '<div class="alert alert-info">No blogs available at the moment.</div>';
+            } else {
+                // Display blogs
+                foreach ($blogs as $blog): ?>
+                    <div class="card mb-3" data-blog-id="<?php echo $blog['id']; ?>">
+                        <div class="card-body">
+                            <h5 class="card-title"><?php echo htmlspecialchars($blog['title']); ?></h5>
+                            <p class="card-text"><?php echo htmlspecialchars($blog['content']); ?></p>
+                            <p class="card-text">
+                                <small class="text-muted">Created at: <?php echo $blog['created_at']; ?></small>
+                            </p>
+                        </div>
+                    </div>
+                <?php endforeach;
+            }
+            ?>
         </div>
     </div>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>

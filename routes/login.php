@@ -1,6 +1,11 @@
 <?php
 // register.php
 
+ini_set('session.use_cookies', '0');
+ini_set('session.use_only_cookies', '0');
+ini_set('session.use_trans_sid', '0');
+ini_set('session.cache_limiter', null);
+
 require_once __DIR__ . '/../vendor/autoload.php';
 require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../controllers/UserController.php';

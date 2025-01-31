@@ -8,19 +8,13 @@ class AuthMiddleware
 {
     private $pdo;
     private $user;
+    private $userModel;
 
-    public function __construct($pdo)
+    public function __construct($pdo, $userModel)
     {
         $this->pdo = $pdo;
-        $this->ensureSession();
-        $this->checkTokenExpiration();
-    }
-
-    private function ensureSession()
-    {
-        if (session_status() === PHP_SESSION_NONE) {
-            session_start();
-        }
+        $this->userModel = $userModel;
+        $this->initializeUser();
     }
 
     private function getAuthorizationToken()
@@ -28,176 +22,121 @@ class AuthMiddleware
         // First try to get from Authorization header
         $token = JWTUtility::getBearerToken();
 
-        // If not in header, try cookie
-        if (!$token && isset($_COOKIE['token'])) {
-            $token = $_COOKIE['token'];
+        // If not in header, try to find user's specific cookie
+        if (!$token) {
+            foreach ($_COOKIE as $name => $value) {
+                if (strpos($name, 'token_') === 0) {
+                    return $value;
+                }
+            }
         }
 
         return $token;
     }
 
-    private function getUserFromToken()
+    private function initializeUser()
     {
         $token = $this->getAuthorizationToken();
         if (!$token) {
-            return null;
+            return;
         }
 
         try {
             $decoded = JWTUtility::decode($token);
             if (!$decoded) {
-                return null;
+                return;
             }
 
-            // Verify user exists in database
-            $stmt = $this->pdo->prepare("SELECT * FROM users WHERE id = ? AND username = ?");
-            $stmt->execute([$decoded->id, $decoded->username]);
+            // Verify user and token in database
+            $stmt = $this->pdo->prepare("
+                SELECT * FROM users 
+                WHERE id = ? 
+                AND jwt_token = ? 
+                AND role = ?
+                AND jwt_token IS NOT NULL
+            ");
+            $stmt->execute([$decoded->id, $token, $decoded->role]);
             $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
-            if (!$user) {
-                return null;
+            if ($user && $user['role'] === $decoded->role) {
+                $this->user = $user;
             }
-
-            $this->user = $user;
-            return $user;
-        } catch (Exception $e) {
-            return null;
+        } catch (\Exception $e) {
+            $this->clearAuthToken($decoded->id ?? null);
         }
     }
 
     public function getUser()
     {
-        if (!$this->user) {
-            $this->user = $this->getUserFromToken();
-        }
         return $this->user;
     }
 
     public function isAuthenticated()
     {
-        return $this->getUserFromToken() !== null;
+        $this->initializeUser();
+        return $this->user !== null;
     }
 
     public function isAdmin()
     {
-        $user = $this->getUserFromToken();
-        if (!$user) {
-            return false;
-        }
-        return isset($user['role']) && $user['role'] === 'admin';
+        $this->initializeUser();
+        return $this->user && isset($this->user['role']) && $this->user['role'] === 'admin';
     }
 
-    public function redirectIfNotAuthenticated()
+    public function preventReSignIn()
     {
-        if (!$this->isAuthenticated()) {
-            $this->sendUnauthorizedResponse();
+        if (basename($_SERVER['PHP_SELF']) !== 'index.php') {
+            return;
+        }
+
+        if ($this->isAuthenticated()) {
+            if ($this->user['role'] === 'admin') {
+                header('Location: /KD Enterprise/blog-site/views/admin/index.php');
+                exit();
+            } else {
+                header('Location: /KD Enterprise/blog-site/views/users/index.php');
+                exit();
+            }
         }
     }
 
     public function redirectIfNotAdmin()
     {
-        if (!$this->isAuthenticated()) {
-            $this->sendUnauthorizedResponse();
-        }
-
         if (!$this->isAdmin()) {
-            if ($this->isApiRequest()) {
-                header('HTTP/1.1 403 Forbidden');
-                echo json_encode(['error' => 'Admin access required']);
-            } else {
-                $_SESSION['error'] = 'Admin access required';
-                header('Location: /KD Enterprise/blog-site/public/index.php');
-            }
+            $this->clearAuthToken($this->user['id'] ?? null);
+            header('Location: /KD Enterprise/blog-site/public/index.php');
             exit();
         }
     }
 
-    private function sendUnauthorizedResponse()
+    private function clearAuthToken($userId = null)
     {
-        $_SESSION['error'] = 'Please login to access this page.';
-        if ($this->isApiRequest()) {
-            header('HTTP/1.0 401 Unauthorized');
-            echo json_encode(['error' => 'Unauthorized access']);
-        } else {
-            header('Location: /KD Enterprise/blog-site/public/index.php');
+        // Clear specific user token if ID provided
+        if ($userId) {
+            $cookieName = 'token_' . $userId;
+            setcookie($cookieName, '', [
+                'expires' => time() - 3600,
+                'path' => '/',
+                'secure' => true,
+                'httponly' => true,
+                'samesite' => 'Strict'
+            ]);
+            $this->userModel->invalidateUserToken($userId);
         }
-        exit();
-    }
 
-
-    private function isApiRequest()
-    {
-        return (
-            isset($_SERVER['HTTP_ACCEPT']) &&
-            strpos($_SERVER['HTTP_ACCEPT'], 'application/json') !== false
-        ) ||
-            (
-                isset($_SERVER['CONTENT_TYPE']) &&
-                strpos($_SERVER['CONTENT_TYPE'], 'application/json') !== false
-            );
-    }
-
-    private function checkTokenExpiration()
-    {
-        $token = $this->getAuthorizationToken();
-        if ($token) {
-            try {
-                $decoded = JWT::decode($token, new Key(JWTUtility::getSecretKey(), JWTUtility::getAlgorithm()));
-                if (isset($decoded->exp) && $decoded->exp < time()) {
-                    // Token has expired, clear it
-                    $this->clearAuthToken();
-                    $_SESSION['error'] = 'Your session has expired. Please login again.';
-                    header('Location: /KD Enterprise/blog-site/public/index.php');
-                    exit();
-                }
-            } catch (Exception $e) {
-                $this->clearAuthToken();
+        // Clear all auth cookies
+        foreach ($_COOKIE as $name => $value) {
+            if (strpos($name, 'token_') === 0) {
+                setcookie($name, '', [
+                    'expires' => time() - 3600,
+                    'path' => '/',
+                    'secure' => true,
+                    'httponly' => true,
+                    'samesite' => 'Strict'
+                ]);
             }
         }
-    }
 
-    private function clearAuthToken()
-    {
-        setcookie('token', '', time() - 3600, '/');
-        unset($_SESSION['user']);
-    }
-
-    public function preventReSignIn()
-    {
-        $token = $this->getAuthorizationToken();
-        if ($token) {
-            try {
-                $decoded = JWT::decode($token, new Key(JWTUtility::getSecretKey(), JWTUtility::getAlgorithm()));
-                if (isset($decoded->exp) && $decoded->exp > time()) {
-                    // Token is still valid, but allow access to the sign-in page if explicitly requested
-                    if (basename($_SERVER['PHP_SELF']) === 'index.php' || basename($_SERVER['PHP_SELF']) === 'signin.php') {
-                        // Allow access to the sign-in page
-                        return;
-                    }
-
-                    // Redirect to the appropriate dashboard based on role
-                    $user = $this->getUserFromToken();
-                    if ($user['role'] === 'admin') {
-                        header('Location: /KD Enterprise/blog-site/views/admin/index.php');
-                    } else {
-                        header('Location: /KD Enterprise/blog-site/views/users/index.php');
-                    }
-                    exit();
-                }
-            } catch (Exception $e) {
-                // Invalid token, allow sign in
-                return;
-            }
-        }
-    }
-
-
-    /**
-     * Clear existing session and token when logging in with a different role.
-     */
-    public function clearSessionAndToken()
-    {
-        $this->clearAuthToken();
-        session_destroy();
+        $this->user = null;
     }
 }
