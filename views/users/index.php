@@ -50,6 +50,7 @@ $user = $authMiddleware->getUser();
             ws.onopen = function() {
                 console.log('WebSocket connected');
                 reconnectAttempts = 0;
+                // No need to request initial blogs since we already have them from PHP
             };
             
             ws.onmessage = function(event) {
@@ -88,10 +89,9 @@ $user = $authMiddleware->getUser();
 
         function addBlogToList(blog) {
             const container = document.getElementById('blogContainer');
-            const noBlogs = document.querySelector('.alert');
+            const noBlogs = container.querySelector('.alert');
             
             if (noBlogs) {
-                noBlogs.remove();
                 container.innerHTML = '';
             }
             
@@ -103,16 +103,19 @@ $user = $authMiddleware->getUser();
             const element = document.querySelector(`[data-blog-id="${blog.id}"]`);
             if (element) {
                 element.outerHTML = createBlogElement(blog);
+            } else {
+                // If the blog doesn't exist, add it
+                addBlogToList(blog);
             }
         }
 
         function removeBlogFromList(blogId) {
+            const container = document.getElementById('blogContainer');
             const element = document.querySelector(`[data-blog-id="${blogId}"]`);
             if (element) {
                 element.remove();
                 
                 // If no more blogs, show message
-                const container = document.getElementById('blogContainer');
                 if (!container.children.length) {
                     container.innerHTML = '<div class="alert alert-info">No blogs available at the moment.</div>';
                 }
@@ -142,7 +145,7 @@ $user = $authMiddleware->getUser();
                 .replace(/'/g, "&#039;");
         }
 
-        // Initialize WebSocket connection
+        // Initialize WebSocket connection when page loads
         document.addEventListener('DOMContentLoaded', function() {
             connectWebSocket();
         });
@@ -166,13 +169,13 @@ $user = $authMiddleware->getUser();
 
     <div class="container mt-4">
         <h1>Latest Blogs</h1>
-        <?php 
-        $blogs = $blogModel->getAllBlogs();
-        if (empty($blogs)): ?>
-            <div class="alert alert-info">No blogs available at the moment.</div>
-        <?php else: ?>
-            <div id="blogContainer">
-                <?php foreach ($blogs as $blog): ?>
+        <div id="blogContainer">
+            <?php 
+            $blogs = $blogModel->getAllBlogs();
+            if (empty($blogs)): ?>
+                <div class="alert alert-info">No blogs available at the moment.</div>
+            <?php else: 
+                foreach ($blogs as $blog): ?>
                     <div class="card mb-3" data-blog-id="<?php echo $blog['id']; ?>">
                         <div class="card-body">
                             <h5 class="card-title"><?php echo htmlspecialchars($blog['title']); ?></h5>
@@ -182,9 +185,9 @@ $user = $authMiddleware->getUser();
                             </p>
                         </div>
                     </div>
-                <?php endforeach; ?>
-            </div>
-        <?php endif; ?>
+                <?php endforeach;
+            endif; ?>
+        </div>
     </div>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
 </body>
