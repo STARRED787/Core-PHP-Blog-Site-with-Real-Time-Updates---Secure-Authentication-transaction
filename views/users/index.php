@@ -13,6 +13,7 @@ $pdo = $database->getConnection();
 $authMiddleware = new AuthMiddleware($pdo);
 $authMiddleware->redirectIfNotAuthenticated();
 
+
 // Get user data
 $user = $authMiddleware->getUser();
 ?>
@@ -25,6 +26,21 @@ $user = $authMiddleware->getUser();
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>User Dashboard</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+
+    <script>
+        var ws = new WebSocket("ws://localhost:8080");
+
+        ws.onmessage = function (event) {
+            var blog = JSON.parse(event.data);
+            var blogContainer = document.getElementById("blogs");
+
+            var blogElement = document.createElement("div");
+            blogElement.innerHTML = `<h3>${blog.title}</h3><p>${blog.content}</p><hr>`;
+            blogContainer.prepend(blogElement);
+        };
+    </script>
+
+
 </head>
 
 <body>
@@ -32,17 +48,28 @@ $user = $authMiddleware->getUser();
         <div class="container">
             <a class="navbar-brand" href="#">User Dashboard</a>
             <div class="navbar-nav ms-auto">
-                <span class="nav-item nav-link text-light">Welcome, <?php echo htmlspecialchars($user['username']); ?></span>
+                <span class="nav-item nav-link text-light">Welcome,
+                    <?php echo htmlspecialchars($user['username']); ?></span>
                 <a class="nav-link" href="/KD Enterprise/blog-site/auth/logout.php">Logout</a>
             </div>
+
+
         </div>
     </nav>
 
-    <div class="container mt-4">
-        <h1>Welcome to User Dashboard</h1>
-        <!-- Add your user dashboard content here -->
-    </div>
+    <h1>Latest Blogs</h1>
+    <div id="blogs">
+        <?php
+        require 'BlogModel.php';
+        $db = new PDO('mysql:host=localhost;dbname=blogdb', 'root', '');
+        $blogModel = new BlogModel($db);
+        $blogs = $blogModel->getAllBlogs();
 
+        foreach ($blogs as $blog) {
+            echo "<div><h3>{$blog['title']}</h3><p>{$blog['content']}</p><hr></div>";
+        }
+        ?>
+    </div>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 

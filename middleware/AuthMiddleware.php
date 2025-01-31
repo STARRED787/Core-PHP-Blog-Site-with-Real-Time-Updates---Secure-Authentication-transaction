@@ -84,6 +84,7 @@ class AuthMiddleware
         return $user && $user['role'] === 'admin';
     }
 
+
     public function redirectIfNotAuthenticated()
     {
         if (!$this->isAuthenticated()) {
@@ -170,7 +171,13 @@ class AuthMiddleware
             try {
                 $decoded = JWT::decode($token, new Key(JWTUtility::getSecretKey(), JWTUtility::getAlgorithm()));
                 if (isset($decoded->exp) && $decoded->exp > time()) {
-                    // Token is still valid, redirect to appropriate dashboard
+                    // Token is still valid, but allow access to the sign-in page if explicitly requested
+                    if (basename($_SERVER['PHP_SELF']) === 'index.php' || basename($_SERVER['PHP_SELF']) === 'signin.php') {
+                        // Allow access to the sign-in page
+                        return;
+                    }
+
+                    // Redirect to the appropriate dashboard
                     $user = $this->getUserFromToken();
                     if ($user['role'] === 'admin') {
                         header('Location: /KD Enterprise/blog-site/views/admin/index.php');
