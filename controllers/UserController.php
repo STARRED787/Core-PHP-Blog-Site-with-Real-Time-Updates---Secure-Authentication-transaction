@@ -23,8 +23,8 @@ class UserController
     {
         if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             try {
-                $username = filter_var($_POST['username'], FILTER_SANITIZE_STRING);
-                $password = $_POST['password'];
+                $username = htmlspecialchars(trim($_POST['username'] ?? ''), ENT_QUOTES, 'UTF-8');
+                $password = $_POST['password'] ?? '';
 
                 if (empty($username) || strlen($username) < 3) {
                     throw new Exception("Username must be at least 3 characters long!");
@@ -52,19 +52,26 @@ class UserController
                     throw new Exception("Failed to generate JWT token!");
                 }
 
-                // Store JWT token in database (optional)
-                $this->userModel->storeJwtToken($userId, $jwtToken);
+                // Store JWT token in database
+                $this->userModel->storeUserToken($userId, $jwtToken);
 
-                // Set cookie to store JWT token with 1-hour expiration
-                setcookie("jwt_token", $jwtToken, time() + 3600, "/", "", false, true); // 3600 seconds = 1 hour
+                // Set cookie with token
+                $cookieName = 'token_' . $userId;
+                setcookie($cookieName, $jwtToken, [
+                    'expires' => time() + 3600,
+                    'path' => '/',
+                    'secure' => true,
+                    'httponly' => true,
+                    'samesite' => 'Strict'
+                ]);
 
-                echo "✅ User successfully registered!";
                 header("Location: ../public/index.php");
                 exit();
 
             } catch (Exception $e) {
                 error_log("Sign-Up Error: " . $e->getMessage());
-                echo "❌ Error: " . $e->getMessage();
+                header('Location: ../public/index.php?error=' . urlencode($e->getMessage()));
+                exit();
             }
         }
     }
