@@ -340,9 +340,10 @@ $blogModel = new BlogModel($pdo);
         function attachEventListeners() {
             document.querySelectorAll('.edit-blog').forEach(button => {
                 button.addEventListener('click', function() {
-                    document.getElementById('editBlogId').value = this.dataset.blogId;
-                    document.getElementById('editBlogTitle').value = this.dataset.blogTitle;
-                    document.getElementById('editBlogContent').value = this.dataset.blogContent;
+                    const editForm = document.getElementById('editBlogForm');
+                    editForm.querySelector('#editBlogId').value = this.dataset.blogId;
+                    editForm.querySelector('#editBlogTitle').value = this.dataset.blogTitle;
+                    editForm.querySelector('#editBlogContent').value = this.dataset.blogContent;
                 });
             });
 
