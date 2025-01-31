@@ -12,61 +12,71 @@ class BlogModel
     public function createBlog($title, $content)
     {
         try {
-            error_log("Starting blog creation...");
-            
             $stmt = $this->pdo->prepare("
-                INSERT INTO blogs (title, content, status, created_at) 
-                VALUES (?, ?, 'draft', NOW())
+                INSERT INTO blogs (title, content, created_at) 
+                VALUES (?, ?, NOW())
             ");
             
-            error_log("Executing query with title: $title and content: $content");
+            error_log("Inserting - Title: " . $title . ", Content: " . $content);
             
             if ($stmt->execute([$title, $content])) {
                 $id = $this->pdo->lastInsertId();
-                error_log("Blog created with ID: $id");
+                error_log("Insert successful, new ID: " . $id);
                 
+                // Fetch and return the new blog
                 $blog = $this->getBlogById($id);
                 error_log("Retrieved blog: " . print_r($blog, true));
-                
                 return $blog;
             }
             
-            error_log("Failed to execute blog creation query");
+            $error = $stmt->errorInfo();
+            error_log("Insert failed: " . print_r($error, true));
             return false;
+            
         } catch (PDOException $e) {
-            error_log("Error creating blog: " . $e->getMessage());
-            error_log("Stack trace: " . $e->getTraceAsString());
+            error_log("Database error: " . $e->getMessage());
             return false;
         }
     }
 
     public function updateBlog($id, $title, $content)
     {
-        $query = "UPDATE " . $this->table . " SET title = :title, content = :content WHERE id = :id";
-        $stmt = $this->pdo->prepare($query);
-        
-        $stmt->bindParam(':id', $id);
-        $stmt->bindParam(':title', $title);
-        $stmt->bindParam(':content', $content);
-        
-        if ($stmt->execute()) {
-            return $this->getBlogById($id);
+        try {
+            $stmt = $this->pdo->prepare("
+                UPDATE {$this->table} 
+                SET title = ?, content = ? 
+                WHERE id = ?
+            ");
+            
+            if ($stmt->execute([$title, $content, $id])) {
+                return $this->getBlogById($id);
+            }
+            return false;
+        } catch (PDOException $e) {
+            error_log("Error updating blog: " . $e->getMessage());
+            return false;
         }
-        return false;
     }
 
     public function deleteBlog($id)
     {
-        $query = "DELETE FROM " . $this->table . " WHERE id = :id";
-        $stmt = $this->pdo->prepare($query);
-        $stmt->bindParam(':id', $id);
-        return $stmt->execute();
+        try {
+            $stmt = $this->pdo->prepare("DELETE FROM {$this->table} WHERE id = ?");
+            return $stmt->execute([$id]);
+        } catch (PDOException $e) {
+            error_log("Error deleting blog: " . $e->getMessage());
+            return false;
+        }
     }
 
     public function getAllBlogs()
     {
         try {
-            $stmt = $this->pdo->prepare("SELECT * FROM blogs ORDER BY created_at DESC");
+            $stmt = $this->pdo->prepare("
+                SELECT id, title, content, created_at 
+                FROM {$this->table} 
+                ORDER BY created_at DESC
+            ");
             $stmt->execute();
             return $stmt->fetchAll(PDO::FETCH_ASSOC);
         } catch (PDOException $e) {
@@ -78,11 +88,15 @@ class BlogModel
     public function getBlogById($id)
     {
         try {
-            $stmt = $this->pdo->prepare("SELECT * FROM blogs WHERE id = ?");
+            $stmt = $this->pdo->prepare("
+                SELECT id, title, content, created_at 
+                FROM {$this->table} 
+                WHERE id = ?
+            ");
             $stmt->execute([$id]);
             return $stmt->fetch(PDO::FETCH_ASSOC);
         } catch (PDOException $e) {
-            error_log("Error getting blog by ID: " . $e->getMessage());
+            error_log("Error in getBlogById: " . $e->getMessage());
             return false;
         }
     }

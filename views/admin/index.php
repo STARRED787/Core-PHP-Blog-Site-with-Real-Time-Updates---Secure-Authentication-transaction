@@ -70,88 +70,78 @@ $blogModel = new BlogModel($pdo);
         </button>
 
         <!-- Table to display blogs -->
-        <?php 
-        $blogs = $blogModel->getAllBlogs();
-        if (empty($blogs)): ?>
-            <div class="alert alert-info">No blogs available. Click "Add New Blog" to create one.</div>
-        <?php else: ?>
-            <table class="table table-bordered">
-                <thead>
-                    <tr>
-                        <th>ID</th>
-                        <th>Title</th>
-                        <th>Content</th>
-                        <th>Status</th>
-                        <th>Created At</th>
-                        <th>Actions</th>
+        <table class="table table-bordered">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Title</th>
+                    <th>Content</th>
+                    <th>Created At</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody id="blogTableBody">
+                <?php foreach ($blogModel->getAllBlogs() as $blog): ?>
+                    <tr data-blog-id="<?php echo $blog['id']; ?>">
+                        <td><?php echo htmlspecialchars($blog['id']); ?></td>
+                        <td><?php echo htmlspecialchars($blog['title']); ?></td>
+                        <td><?php echo htmlspecialchars($blog['content']); ?></td>
+                        <td><?php echo $blog['created_at']; ?></td>
+                        <td>
+                            <button class="btn btn-sm btn-primary edit-blog" 
+                                    data-bs-toggle="modal" 
+                                    data-bs-target="#editBlogModal"
+                                    data-blog-id="<?php echo $blog['id']; ?>"
+                                    data-blog-title="<?php echo htmlspecialchars($blog['title']); ?>"
+                                    data-blog-content="<?php echo htmlspecialchars($blog['content']); ?>">
+                                Edit
+                            </button>
+                            <button class="btn btn-sm btn-danger delete-blog" 
+                                    data-blog-id="<?php echo $blog['id']; ?>">
+                                Delete
+                            </button>
+                        </td>
                     </tr>
-                </thead>
-                <tbody id="blogTableBody">
-                    <?php foreach ($blogs as $blog): ?>
-                        <tr data-blog-id="<?php echo $blog['id']; ?>">
-                            <td><?php echo htmlspecialchars($blog['id']); ?></td>
-                            <td><?php echo htmlspecialchars($blog['title']); ?></td>
-                            <td><?php echo htmlspecialchars($blog['content']); ?></td>
-                            <td>
-                                <select class="form-select blog-status" data-blog-id="<?php echo $blog['id']; ?>">
-                                    <option value="draft" <?php echo $blog['status'] === 'draft' ? 'selected' : ''; ?>>Draft</option>
-                                    <option value="published" <?php echo $blog['status'] === 'published' ? 'selected' : ''; ?>>Published</option>
-                                </select>
-                            </td>
-                            <td><?php echo $blog['created_at']; ?></td>
-                            <td>
-                                <button class="btn btn-sm btn-primary edit-blog" 
-                                        data-bs-toggle="modal" 
-                                        data-bs-target="#editBlogModal"
-                                        data-blog-id="<?php echo $blog['id']; ?>"
-                                        data-blog-title="<?php echo htmlspecialchars($blog['title']); ?>"
-                                        data-blog-content="<?php echo htmlspecialchars($blog['content']); ?>">
-                                    Edit
-                                </button>
-                                <button class="btn btn-sm btn-danger delete-blog" 
-                                        data-blog-id="<?php echo $blog['id']; ?>">
-                                    Delete
-                                </button>
-                            </td>
-                        </tr>
-                    <?php endforeach; ?>
-                </tbody>
-            </table>
-        <?php endif; ?>
+                <?php endforeach; ?>
+            </tbody>
+        </table>
 
         <!-- Add Blog Modal -->
-        <div class="modal fade" id="addBlogModal" tabindex="-1">
+        <div class="modal fade" id="addBlogModal" tabindex="-1" aria-labelledby="addBlogModalLabel" aria-hidden="true">
             <div class="modal-dialog">
                 <div class="modal-content">
                     <div class="modal-header">
-                        <h5 class="modal-title">Add New Blog</h5>
-                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                        <h5 class="modal-title" id="addBlogModalLabel">Add New Blog</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                     </div>
-                    <div class="modal-body">
-                        <form id="addBlogForm">
+                    <form id="addBlogForm">
+                        <div class="modal-body">
                             <input type="hidden" name="action" value="create">
                             <div class="mb-3">
                                 <label for="blogTitle" class="form-label">Title</label>
-                                <input type="text" class="form-control" id="blogTitle" name="title" required minlength="1">
+                                <input type="text" class="form-control" id="blogTitle" name="title" required>
                             </div>
                             <div class="mb-3">
                                 <label for="blogContent" class="form-label">Content</label>
-                                <textarea class="form-control" id="blogContent" name="content" rows="3" required minlength="1"></textarea>
+                                <textarea class="form-control" id="blogContent" name="content" rows="3" required></textarea>
                             </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
                             <button type="submit" class="btn btn-primary">Create Blog</button>
-                        </form>
-                    </div>
+                        </div>
+                    </form>
                 </div>
             </div>
         </div>
 
         <!-- Edit Blog Modal -->
-        <div class="modal fade" id="editBlogModal" tabindex="-1">
+        <div class="modal fade" id="editBlogModal" tabindex="-1" aria-labelledby="editBlogModalLabel" aria-hidden="true">
             <div class="modal-dialog">
                 <div class="modal-content">
                     <div class="modal-header">
-                        <h5 class="modal-title">Edit Blog</h5>
-                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                        <h5 class="modal-title" id="editBlogModalLabel">Edit Blog</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                     </div>
                     <div class="modal-body">
                         <form id="editBlogForm">
@@ -159,13 +149,16 @@ $blogModel = new BlogModel($pdo);
                             <input type="hidden" name="action" value="update">
                             <div class="mb-3">
                                 <label for="editBlogTitle" class="form-label">Title</label>
-                                <input type="text" class="form-control" id="editBlogTitle" name="title" required minlength="1">
+                                <input type="text" class="form-control" id="editBlogTitle" name="title" required>
                             </div>
                             <div class="mb-3">
                                 <label for="editBlogContent" class="form-label">Content</label>
-                                <textarea class="form-control" id="editBlogContent" name="content" rows="3" required minlength="1"></textarea>
+                                <textarea class="form-control" id="editBlogContent" name="content" rows="3" required></textarea>
                             </div>
-                            <button type="submit" class="btn btn-primary">Update Blog</button>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                                <button type="submit" class="btn btn-primary">Update Blog</button>
+                            </div>
                         </form>
                     </div>
                 </div>
@@ -223,29 +216,6 @@ $blogModel = new BlogModel($pdo);
 
         // Table update functions
         function addBlogToTable(blog) {
-            const container = document.querySelector('.container.mt-4');
-            const alertDiv = container.querySelector('.alert');
-            
-            // If this is the first blog, replace the alert with a table
-            if (alertDiv) {
-                const tableHTML = `
-                    <table class="table table-bordered">
-                        <thead>
-                            <tr>
-                                <th>ID</th>
-                                <th>Title</th>
-                                <th>Content</th>
-                                <th>Status</th>
-                                <th>Created At</th>
-                                <th>Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody id="blogTableBody"></tbody>
-                    </table>
-                `;
-                alertDiv.outerHTML = tableHTML;
-            }
-
             const tbody = document.getElementById('blogTableBody');
             const row = createBlogRow(blog);
             tbody.insertAdjacentHTML('afterbegin', row);
@@ -261,17 +231,9 @@ $blogModel = new BlogModel($pdo);
         }
 
         function removeBlogFromTable(blogId) {
-            const tbody = document.getElementById('blogTableBody');
             const row = document.querySelector(`tr[data-blog-id="${blogId}"]`);
             if (row) {
                 row.remove();
-                
-                // If no more blogs, show the alert
-                if (tbody.children.length === 0) {
-                    const table = tbody.closest('table');
-                    const alertHTML = '<div class="alert alert-info">No blogs available. Click "Add New Blog" to create one.</div>';
-                    table.outerHTML = alertHTML;
-                }
             }
         }
 
@@ -281,12 +243,6 @@ $blogModel = new BlogModel($pdo);
                     <td>${blog.id}</td>
                     <td>${escapeHtml(blog.title)}</td>
                     <td>${escapeHtml(blog.content)}</td>
-                    <td>
-                        <select class="form-select blog-status" data-blog-id="${blog.id}">
-                            <option value="draft" ${blog.status === 'draft' ? 'selected' : ''}>Draft</option>
-                            <option value="published" ${blog.status === 'published' ? 'selected' : ''}>Published</option>
-                        </select>
-                    </td>
                     <td>${blog.created_at}</td>
                     <td>
                         <button class="btn btn-sm btn-primary edit-blog" 
@@ -307,61 +263,45 @@ $blogModel = new BlogModel($pdo);
         }
 
         function handleDelete(blogId) {
-            return async function() {
-                if (!confirm('Are you sure you want to delete this blog?')) {
-                    return;
+            if (!confirm('Are you sure you want to delete this blog?')) {
+                return;
+            }
+            
+            fetch('/KD Enterprise/blog-site/routes/blog.php', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json'
+                },
+                body: JSON.stringify({
+                    action: 'delete',
+                    id: blogId
+                })
+            })
+            .then(response => response.json())
+            .then(result => {
+                if (!result.success) {
+                    throw new Error(result.error || 'Failed to delete blog');
                 }
                 
-                try {
-                    const response = await fetch('/KD Enterprise/blog-site/routes/blog.php', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'Accept': 'application/json'
-                        },
-                        body: JSON.stringify({
-                            action: 'delete',
-                            id: blogId
-                        })
-                    });
-                    
-                    const result = await response.json();
-                    
-                    if (!response.ok) {
-                        throw new Error(result.error || 'Failed to delete blog');
-                    }
-                    
-                    if (result.success) {
-                        // Send update through WebSocket
-                        if (ws && ws.readyState === WebSocket.OPEN) {
-                            ws.send(JSON.stringify({
-                                type: 'delete',
-                                blogId: blogId
-                            }));
-                        }
-                        
-                        // Remove from local table
-                        removeBlogFromTable(blogId);
-                    }
-                } catch (error) {
-                    alert('Error: ' + error.message);
+                // Remove from table
+                removeBlogFromTable(blogId);
+                
+                // Send WebSocket update
+                if (ws && ws.readyState === WebSocket.OPEN) {
+                    ws.send(JSON.stringify({
+                        type: 'delete',
+                        blogId: blogId
+                    }));
                 }
-            };
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Error: ' + error.message);
+            });
         }
 
         function attachEventListeners() {
-            // Remove existing event listeners
-            document.querySelectorAll('.edit-blog').forEach(button => {
-                const newButton = button.cloneNode(true);
-                button.parentNode.replaceChild(newButton, button);
-            });
-
-            document.querySelectorAll('.delete-blog').forEach(button => {
-                const newButton = button.cloneNode(true);
-                button.parentNode.replaceChild(newButton, button);
-            });
-
-            // Add new event listeners
             document.querySelectorAll('.edit-blog').forEach(button => {
                 button.addEventListener('click', function() {
                     document.getElementById('editBlogId').value = this.dataset.blogId;
@@ -371,11 +311,53 @@ $blogModel = new BlogModel($pdo);
             });
 
             document.querySelectorAll('.delete-blog').forEach(button => {
-                button.addEventListener('click', handleDelete(button.dataset.blogId));
+                button.addEventListener('click', function() {
+                    handleDelete(this.dataset.blogId);
+                });
             });
         }
 
-        // Form submit handlers
+        // Form handlers
+        document.getElementById('addBlogForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const formData = new FormData(this);
+            
+            try {
+                const response = await fetch('/KD Enterprise/blog-site/routes/blog.php', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const result = await response.json();
+                
+                if (!result.success) {
+                    throw new Error(result.error || 'Failed to create blog');
+                }
+                
+                // Add to table
+                addBlogToTable(result.blog);
+                
+                // Reset form and close modal
+                this.reset();
+                const modal = bootstrap.Modal.getInstance(document.getElementById('addBlogModal'));
+                if (modal) {
+                    modal.hide();
+                }
+                
+                // Send WebSocket update
+                if (ws && ws.readyState === WebSocket.OPEN) {
+                    ws.send(JSON.stringify({
+                        type: 'create',
+                        blog: result.blog
+                    }));
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('Error: ' + error.message);
+            }
+        });
+
         document.getElementById('editBlogForm').addEventListener('submit', async function(e) {
             e.preventDefault();
             
@@ -398,64 +380,28 @@ $blogModel = new BlogModel($pdo);
                 
                 const result = await response.json();
                 
-                if (!response.ok) {
+                if (!result.success) {
                     throw new Error(result.error || 'Failed to update blog');
                 }
                 
-                if (result.success) {
-                    if (ws && ws.readyState === WebSocket.OPEN) {
-                        ws.send(JSON.stringify({
-                            type: 'update',
-                            blog: result.blog
-                        }));
-                    }
-                    
-                    updateBlogInTable(result.blog);
-                    
-                    const modal = bootstrap.Modal.getInstance(document.getElementById('editBlogModal'));
-                    if (modal) {
-                        modal.hide();
-                    }
-                }
-            } catch (error) {
-                alert('Error: ' + error.message);
-            }
-        });
-
-        document.getElementById('addBlogForm').addEventListener('submit', async function(e) {
-            e.preventDefault();
-            
-            const formData = new FormData(this);
-            
-            try {
-                const response = await fetch('/KD Enterprise/blog-site/routes/blog.php', {
-                    method: 'POST',
-                    body: formData
-                });
+                // Update table
+                updateBlogInTable(result.blog);
                 
-                if (!response.ok) {
-                    const result = await response.json();
-                    throw new Error(result.error || 'Failed to create blog');
+                // Close modal
+                const modal = bootstrap.Modal.getInstance(document.getElementById('editBlogModal'));
+                if (modal) {
+                    modal.hide();
                 }
                 
-                const result = await response.json();
-                if (result.success) {
-                    if (ws && ws.readyState === WebSocket.OPEN) {
-                        ws.send(JSON.stringify({
-                            type: 'create',
-                            blog: result.blog
-                        }));
-                    }
-                    
-                    addBlogToTable(result.blog);
-                    
-                    this.reset();
-                    const modal = bootstrap.Modal.getInstance(document.getElementById('addBlogModal'));
-                    if (modal) {
-                        modal.hide();
-                    }
+                // Send WebSocket update
+                if (ws && ws.readyState === WebSocket.OPEN) {
+                    ws.send(JSON.stringify({
+                        type: 'update',
+                        blog: result.blog
+                    }));
                 }
             } catch (error) {
+                console.error('Error:', error);
                 alert('Error: ' + error.message);
             }
         });

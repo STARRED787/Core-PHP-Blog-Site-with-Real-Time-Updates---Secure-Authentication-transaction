@@ -8,34 +8,26 @@ $dotenv->load();
 
 
 class Database {
-    private $host;
-    private $database_name;
-    private $username;
-    private $password;
+    private $host = "localhost";
+    private $db_name = "blog_db";     // Verify this matches your database name
+    private $username = "root";
+    private $password = "";
     private $conn;
 
-    public function __construct() {
-        $this->host = $_ENV['DB_HOST'];
-        $this->database_name = $_ENV['DB_NAME'];
-        $this->username = $_ENV['DB_USERNAME'];
-        $this->password = $_ENV['DB_PASSWORD'];
-    }
-
     public function getConnection() {
-        $this->conn = null;
-
         try {
-            $this->conn = new PDO(
-                "mysql:host=" . $this->host . ";dbname=" . $this->database_name,
-                $this->username,
-                $this->password
-            );
-            $this->conn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-            $this->conn->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
+            if (!$this->conn) {
+                $dsn = "mysql:host=" . $this->host . ";dbname=" . $this->db_name;
+                error_log("Connecting to database with DSN: " . $dsn);
+                
+                $this->conn = new PDO($dsn, $this->username, $this->password);
+                $this->conn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+                error_log("Database connection successful");
+            }
+            return $this->conn;
         } catch(PDOException $e) {
-            echo "Connection error: " . $e->getMessage();
+            error_log("Connection error: " . $e->getMessage());
+            throw new Exception("Database connection failed: " . $e->getMessage());
         }
-
-        return $this->conn;
     }
 }
