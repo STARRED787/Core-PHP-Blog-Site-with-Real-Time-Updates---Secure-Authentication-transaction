@@ -28,6 +28,11 @@ if (!$authMiddleware->isAuthenticated()) {
 
 // Get user data
 $user = $authMiddleware->getUser();
+
+// Add after authentication check
+if ($user) {
+    $userModel->checkAndClearExpiredTokens();
+}
 ?>
 
 <!DOCTYPE html>

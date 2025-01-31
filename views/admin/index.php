@@ -34,6 +34,11 @@ if (!$user) {
     exit();
 }
 
+// Add after authentication check
+if ($user) {
+    $userModel->checkAndClearExpiredTokens();
+}
+
 // Initialize BlogModel
 $blogModel = new BlogModel($pdo);
 ?>

@@ -12,29 +12,32 @@ class BlogModel
     public function createBlog($title, $content)
     {
         try {
+            $this->pdo->beginTransaction();
+            
             $stmt = $this->pdo->prepare("
                 INSERT INTO blogs (title, content, created_at) 
                 VALUES (?, ?, NOW())
             ");
             
-            error_log("Inserting - Title: " . $title . ", Content: " . $content);
-            
-            if ($stmt->execute([$title, $content])) {
-                $id = $this->pdo->lastInsertId();
-                error_log("Insert successful, new ID: " . $id);
-                
-                // Fetch and return the new blog
-                $blog = $this->getBlogById($id);
-                error_log("Retrieved blog: " . print_r($blog, true));
-                return $blog;
+            if (!$stmt->execute([$title, $content])) {
+                throw new PDOException("Failed to execute blog creation");
             }
             
-            $error = $stmt->errorInfo();
-            error_log("Insert failed: " . print_r($error, true));
-            return false;
+            $id = $this->pdo->lastInsertId();
+            $blog = $this->getBlogById($id);
+            
+            if (!$blog) {
+                throw new PDOException("Failed to retrieve created blog");
+            }
+            
+            $this->pdo->commit();
+            return $blog;
             
         } catch (PDOException $e) {
-            error_log("Database error: " . $e->getMessage());
+            if ($this->pdo->inTransaction()) {
+                $this->pdo->rollBack();
+            }
+            error_log("Database error in createBlog: " . $e->getMessage());
             return false;
         }
     }
@@ -42,17 +45,30 @@ class BlogModel
     public function updateBlog($id, $title, $content)
     {
         try {
+            $this->pdo->beginTransaction();
+            
             $stmt = $this->pdo->prepare("
                 UPDATE {$this->table} 
                 SET title = ?, content = ? 
                 WHERE id = ?
             ");
             
-            if ($stmt->execute([$title, $content, $id])) {
-                return $this->getBlogById($id);
+            if (!$stmt->execute([$title, $content, $id])) {
+                throw new PDOException("Failed to update blog");
             }
-            return false;
+            
+            $blog = $this->getBlogById($id);
+            if (!$blog) {
+                throw new PDOException("Failed to retrieve updated blog");
+            }
+            
+            $this->pdo->commit();
+            return $blog;
+            
         } catch (PDOException $e) {
+            if ($this->pdo->inTransaction()) {
+                $this->pdo->rollBack();
+            }
             error_log("Error updating blog: " . $e->getMessage());
             return false;
         }
@@ -61,9 +77,20 @@ class BlogModel
     public function deleteBlog($id)
     {
         try {
+            $this->pdo->beginTransaction();
+            
             $stmt = $this->pdo->prepare("DELETE FROM {$this->table} WHERE id = ?");
-            return $stmt->execute([$id]);
+            if (!$stmt->execute([$id])) {
+                throw new PDOException("Failed to delete blog");
+            }
+            
+            $this->pdo->commit();
+            return true;
+            
         } catch (PDOException $e) {
+            if ($this->pdo->inTransaction()) {
+                $this->pdo->rollBack();
+            }
             error_log("Error deleting blog: " . $e->getMessage());
             return false;
         }
