@@ -1,5 +1,6 @@
 <?php
-setcookie('auth_token', '', time() - 3600, '/');
-header('Location: ../auth/login.php');
-exit;
-?> 
+require_once __DIR__ . '/../controllers/UserController.php';
+
+$controller = new UserController();
+$controller->logout();
+?>

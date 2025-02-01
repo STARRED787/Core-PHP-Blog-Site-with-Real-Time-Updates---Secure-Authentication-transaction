@@ -25,24 +25,16 @@ function updateBlogPosts(posts) {
     const blogContainer = document.getElementById('blogPosts');
     
     if (!posts || posts.length === 0) {
-        blogContainer.innerHTML = `
-            <div class="col-12">
-                <div class="alert alert-info text-center">
-                    <h4 class="alert-heading">No Blog Posts Yet!</h4>
-                    <p class="mb-0">Check back later for new content.</p>
-                </div>
-            </div>`;
+        blogContainer.innerHTML = '<div class="alert alert-info">No blog posts available.</div>';
         return;
     }
 
     blogContainer.innerHTML = posts.map(post => `
-        <div class="col">
-            <div class="card h-100">
-                <div class="card-body">
-                    <h2 class="card-title h5">${escapeHtml(post.title)}</h2>
-                    <p class="card-text">${escapeHtml(post.content)}</p>
-                    <div class="text-muted small">Posted on: ${new Date(post.created_at).toLocaleString()}</div>
-                </div>
+        <div class="card mb-4">
+            <div class="card-body">
+                <h2 class="card-title">${escapeHtml(post.title)}</h2>
+                <p class="card-text">${escapeHtml(post.content)}</p>
+                <div class="text-muted">Posted on: ${new Date(post.created_at).toLocaleString()}</div>
             </div>
         </div>
     `).join('');

@@ -27,30 +27,18 @@ ws.onclose = function() {
 
 // Function to update the blog table
 function updateBlogTable(posts) {
-    console.log('Updating table with posts:', posts);
+    console.log('Updating table with posts:', posts); // Debug log
     const blogTable = document.querySelector('.table');
-    const tableContainer = document.querySelector('.table-responsive');
-    const noPostsMessage = document.getElementById('noPostsMessage') || document.createElement('div');
-    noPostsMessage.id = 'noPostsMessage';
+    const tbody = document.getElementById('blogTable');
     
     if (!posts || posts.length === 0) {
+        // Hide table if no posts
         blogTable.style.display = 'none';
-        noPostsMessage.className = 'alert alert-info text-center';
-        noPostsMessage.innerHTML = `
-            <h4 class="alert-heading">No Blog Posts Yet!</h4>
-            <p class="mb-0">Click the "Create New Post" button to add your first blog post.</p>
-        `;
-        tableContainer.appendChild(noPostsMessage);
         return;
     }
 
-    // Remove no posts message if it exists
-    if (document.getElementById('noPostsMessage')) {
-        document.getElementById('noPostsMessage').remove();
-    }
-
+    // Show table if there are posts
     blogTable.style.display = 'table';
-    const tbody = document.getElementById('blogTable');
     
     tbody.innerHTML = posts.map(post => `
         <tr>

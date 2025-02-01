@@ -27,7 +27,7 @@ require_once __DIR__ . '/../models/Blog.php';
     <header class="bg-light py-3 border-bottom mb-4">
         <div class="container d-flex justify-content-between align-items-center">
             <!-- Display authenticated username dynamically -->
-            <h1 class="h3" id="username">Welcome, <?php echo $_COOKIE['auth_token'] ? json_decode(base64_decode(explode('.', $_COOKIE['auth_token'])[1]))->username : 'Guest'; ?>!</h1>
+            <h1 class="h3" id="username">Welcome, <?php echo $username; ?>!</h1>
             <p class="text-muted mb-0">Role: User</p>
             <!-- Logout navigation -->
             <nav>
@@ -51,8 +51,7 @@ require_once __DIR__ . '/../models/Blog.php';
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 
     <!-- Custom JavaScript -->
-    <!-- Alert system for notifications -->
-    <script src="../helper/userAlerts.js"></script>
+
     <!-- WebSocket handler for real-time updates -->
     <script src="../websocket/userView.js"></script>
 </body>

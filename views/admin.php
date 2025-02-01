@@ -1,18 +1,5 @@
 <?php
-/**
- * Admin Dashboard View
- * Provides blog management interface for administrators
- * Features:
- * - Create, edit, and delete blog posts
- * - Real-time updates via WebSocket
- * - Tabular view of all blog posts
- * - Modal forms for CRUD operations
- */
-
-// Load authentication and blog model
 require_once __DIR__ . '/../auth/admin_auth.php';
-require_once __DIR__ . '/../models/Blog.php';
-
 ?>
 
 <!DOCTYPE html>
