@@ -1,193 +1,224 @@
 <?php
-error_reporting(E_ALL);
-ini_set('display_errors', 1);
+// Required dependencies
+require_once __DIR__ . '/../vendor/autoload.php'; // Composer autoloader for dependencies
+require_once __DIR__ . '/../models/User.php';     // User model
+require_once __DIR__ . '/../utils/JWTUtils.php';  // JWT utility functions
+require_once __DIR__ . '/../config/database.php'; // Database configuration
+require_once __DIR__ . '/../core/Model.php';      // Base model class
 
-require_once '../config/JWT.php';  // Adjust the path based on your file structure
-require_once '../models/User.php'; // Include the User model
-
-require_once '../middleware/AuthMiddleware.php'; // Include the AuthMiddleware
+// Import required JWT classes
+use Firebase\JWT\JWT;
+use Firebase\JWT\Key;
+use Illuminate\Database\Capsule\Manager as DB;
 
 class UserController
 {
-    private $userModel;
-    private $authMiddleware;
+    // Secret key for JWT token encryption/decryption
+    private $secretKey = 'your_secret_key_here';
 
-    public function __construct($userModel, $pdo)
-    {
-        $this->userModel = $userModel;
-        $this->authMiddleware = new AuthMiddleware($pdo, $userModel);
-    }
-
-    // Handle user signup
+    /**
+     * Handle user registration
+     * POST request with username and password
+     */
     public function signUp()
     {
         if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             try {
-                $username = htmlspecialchars(trim($_POST['username'] ?? ''), ENT_QUOTES, 'UTF-8');
-                $password = $_POST['password'] ?? '';
-
-                if (empty($username) || strlen($username) < 3) {
-                    throw new Exception("Username must be at least 3 characters long!");
+                // Validate required fields
+                if (empty($_POST['username']) || empty($_POST['password'])) {
+                    throw new Exception('Username and Password are required!');
                 }
 
-                if (strlen($password) < 8) {
-                    throw new Exception("Password must be at least 8 characters long!");
+                // Check for duplicate username
+                $existingUser = User::where('username', $_POST['username'])->first();
+                if ($existingUser) {
+                    throw new Exception('Username already exists!');
                 }
 
-                if ($this->userModel->userExists($username)) {
-                    throw new Exception("Username already exists!");
-                }
-
-                $hashedPassword = password_hash($password, PASSWORD_BCRYPT);
-                $userId = $this->userModel->createUser($username, $hashedPassword);
-
-                if (!$userId) {
-                    throw new Exception("User registration failed!");
-                }
-
-                // Generate JWT token
-                $jwtToken = JWTUtility::encode(['id' => $userId, 'username' => $username, 'role' => 'user']);
-
-                if (!$jwtToken) {
-                    throw new Exception("Failed to generate JWT token!");
-                }
-
-                // Store JWT token in database
-                $this->userModel->storeUserToken($userId, $jwtToken);
-
-                // Set cookie with token
-                $cookieName = 'token_' . $userId;
-                setcookie($cookieName, $jwtToken, [
-                    'expires' => time() + 3600,
-                    'path' => '/',
-                    'secure' => true,
-                    'httponly' => true,
-                    'samesite' => 'Strict'
+                // Create new user with hashed password
+                $user = User::create([
+                    'username' => $_POST['username'],
+                    'password' => password_hash($_POST['password'], PASSWORD_BCRYPT),
+                    'role' => 'user' // Default role for new users
                 ]);
 
-                header("Location: ../public/index.php");
-                exit();
+                // Generate authentication token
+                $token = $this->generateToken($user->id, $user->username);
+
+                // Set secure HTTP-only cookie with token
+                setcookie('auth_token', $token, [
+                    'expires' => time() + (60 * 60), // 1 hour expiration
+                    'path' => '/',
+                    'secure' => true,     // Only send over HTTPS
+                    'httponly' => true,   // Not accessible via JavaScript
+                    'samesite' => 'Strict' // CSRF protection
+                ]);
+
+                // Save token to user record
+                $user->jwt_token = $token;
+                $user->save();
+
+                // Redirect to login page
+                header('Location: ../../blog-site/public/index.php');
+                exit;
 
             } catch (Exception $e) {
-                error_log("Sign-Up Error: " . $e->getMessage());
-                header('Location: ../public/index.php?error=' . urlencode($e->getMessage()));
-                exit();
+                echo json_encode(['error' => $e->getMessage()]);
+                return;
             }
         }
     }
-
-    // Handle user sign-in
-    public function signIn()
+    
+    /**
+     * Generate JWT token with user information
+     * @param int $userId User's ID
+     * @param string $username User's username
+     * @return string JWT token
+     */
+    private function generateToken($userId, $username)
     {
-        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-            try {
-                $username = $_POST['username'] ?? '';
-                $password = $_POST['password'] ?? '';
+        $payload = [
+            'id' => $userId,
+            'username' => $username,
+            'iat' => time(),           // Issued at timestamp
+            'exp' => time() + 3600     // Expires in 1 hour
+        ];
 
-                $user = $this->userModel->getUserByUsername($username);
-                
-                if (!$user || !password_verify($password, $user['password'])) {
-                    throw new \Exception('Invalid credentials');
-                }
+        return JWT::encode($payload, $this->secretKey, JWTUtility::getAlgorithm());
+    }
 
-                // Create JWT payload with 1-hour expiration
-                $payload = [
-                    'id' => $user['id'],
-                    'username' => $user['username'],
-                    'role' => $user['role'],
-                    'exp' => time() + 3600 // 1 hour
-                ];
-                
-                // Generate JWT token
-                $token = JWTUtility::encode($payload);
-                
-                // Store token in database
-                if (!$this->userModel->storeUserToken($user['id'], $token)) {
-                    throw new \Exception('Authentication failed');
-                }
+    /**
+     * Handle user login
+     * @param array $credentials Username and password
+     */
+    public function login($credentials)
+    {
+        try {
+            // Find user by username
+            $user = User::where('username', $credentials['username'])->first();
 
-                // Set secure cookie with 1-hour expiration
-                $cookieName = 'token_' . $user['id'];
-                setcookie($cookieName, $token, [
-                    'expires' => time() + 3600, // 1 hour
-                    'path' => '/',
-                    'secure' => true,
-                    'httponly' => true,
-                    'samesite' => 'Strict'
-                ]);
-
-                // Redirect based on role
-                if ($user['role'] === 'admin') {
-                    header('Location: /KD Enterprise/blog-site/views/admin/index.php');
-                } else {
-                    header('Location: /KD Enterprise/blog-site/views/users/index.php');
-                }
-                exit();
-
-            } catch (\Exception $e) {
-                header('Location: /KD Enterprise/blog-site/public/index.php?error=' . urlencode($e->getMessage()));
-                exit();
+            // Verify password
+            if (!$user || !$user->verifyPassword($credentials['password'])) {
+                throw new Exception('Invalid credentials');
             }
-        }
-    }
 
-    private function isApiRequest()
-    {
-        return (
-            isset($_SERVER['HTTP_ACCEPT']) && 
-            strpos($_SERVER['HTTP_ACCEPT'], 'application/json') !== false
-        ) || 
-        (
-            isset($_SERVER['CONTENT_TYPE']) && 
-            strpos($_SERVER['CONTENT_TYPE'], 'application/json') !== false
-        );
-    }
+            // Generate new token with user info and role
+            $token = JWT::encode([
+                'id' => $user->id,
+                'username' => $user->username,
+                'role' => $user->role ?? 'user',
+                'exp' => time() + (60 * 60)
+            ], $this->secretKey, 'HS256');
 
-    // Handle user logout
-    public function logout()
-    {
-        if (isset($_SESSION['user_id'])) {
-            // Get user's token cookie name
-            $cookieName = 'token_' . $_SESSION['user_id'];
-            
-            // Invalidate token in database
-            $this->userModel->invalidateUserToken($_SESSION['user_id']);
-
-            // Clear the specific user's cookie
-            setcookie($cookieName, '', [
-                'expires' => time() - 3600,
+            // Set secure cookie with token
+            setcookie('auth_token', $token, [
+                'expires' => time() + (60 * 60),
                 'path' => '/',
                 'secure' => true,
                 'httponly' => true,
                 'samesite' => 'Strict'
             ]);
+
+            // Update user's token in database
+            $user->jwt_token = $token;
+            $user->save();
+
+            // Redirect based on user role
+            if ($user->role === 'admin') {
+                header('Location: ../../blog-site/views/admin.php');
+            } else {
+                header('Location: ../../blog-site/views/user.php');
+            }
+            exit;
+
+        } catch (Exception $e) {
+            header('Location: ../../blog-site/public/index.php?error=' . urlencode($e->getMessage()));
+            exit;
+        }
+    }
+
+    /**
+     * Check if user has required role
+     * @param string $requiredRole Role to check for
+     * @return mixed True if authorized, JSON error if not
+     */
+    public function checkRole($requiredRole) 
+    {
+        $token = $_COOKIE['auth_token'] ?? null;
+        
+        if (!$token) {
+            http_response_code(401);
+            return json_encode(['message' => 'Unauthorized']);
         }
 
-        // Clear session
-        session_unset();
-        session_destroy();
-        session_start();
-
-        header('Location: /KD Enterprise/blog-site/public/index.php');
-        exit();
+        try {
+            // Decode and verify token
+            $decoded = JWT::decode($token, new Key($this->secretKey, 'HS256'));
+            
+            // Check if user has required role
+            if ($decoded->role !== $requiredRole) {
+                http_response_code(403);
+                return json_encode(['message' => 'Forbidden - Insufficient permissions']);
+            }
+            
+            return true;
+        } catch (Exception $e) {
+            http_response_code(401);
+            return json_encode(['message' => 'Invalid token']);
+        }
     }
 
-    // Handle user dashboard
-    public function userDashboard()
+    /**
+     * Handle user logout
+     * Clears session, cookies, and redirects to login
+     */
+    public function logout()
     {
-        // Check if user is authenticated and has a 'user' role
-        $this->authMiddleware->redirectIfNotAuthenticated();
-
-        // User dashboard logic here
-        echo "Welcome to the User Dashboard!";
+        try {
+            // Expire and remove auth cookie
+            setcookie('auth_token', '', time() - 3600, '/');
+            
+            // Clear PHP session data
+            session_start();
+            session_unset();
+            session_destroy();
+            
+            // Redirect to login page
+            header('Location: ../../blog-site/public/index.php');
+            exit;
+        } catch (Exception $e) {
+            // Log error and redirect with error message
+            error_log("Logout error: " . $e->getMessage());
+            header('Location: ../../blog-site/public/index.php?error=' . urlencode('Error during logout'));
+            exit;
+        }
     }
 
-    // Handle admin dashboard
-    public function adminDashboard()
+    /**
+     * Verify user's token and return user object
+     * @return mixed User object if valid, null if not
+     */
+    public function verifyToken()
     {
-        // Check if user is authenticated and has an 'admin' role
-        $this->authMiddleware->redirectIfNotAdmin();
+        $token = $_COOKIE['auth_token'] ?? null;
+        
+        if (!$token) {
+            return null;
+        }
 
+        try {
+            // Decode token
+            $decoded = JWT::decode($token, new Key($this->secretKey, 'HS256'));
+            
+            // Verify user exists and token matches
+            $user = User::find($decoded->id);
+            if (!$user || $user->jwt_token !== $token) {
+                return null;
+            }
 
+            return $user;
+        } catch (Exception $e) {
+            return null;
+        }
     }
 }

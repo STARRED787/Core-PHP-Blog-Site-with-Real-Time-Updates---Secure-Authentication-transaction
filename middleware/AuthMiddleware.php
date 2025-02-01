@@ -1,133 +1,152 @@
 <?php
-require_once __DIR__ . '/../config/JWT.php';
+// File: core/Middleware.php
 
+require_once __DIR__ . '/../controllers/UserController.php';
 use Firebase\JWT\JWT;
 use Firebase\JWT\Key;
 
 class AuthMiddleware
 {
-    private $pdo;
-    private $user;
-    private $userModel;
+    private $secretKey = 'your_secret_key'; // Set your secret key for JWT encoding/decoding
+    private $userController;
 
-    public function __construct($pdo, $userModel)
+    public function __construct()
     {
-        $this->pdo = $pdo;
-        $this->userModel = $userModel;
-        $this->initializeUser();
+        $this->userController = new UserController();
     }
 
-    private function getAuthorizationToken()
+    public function checkAuth()
     {
-        // First try to get from Authorization header
-        $token = JWTUtility::getBearerToken();
-
-        // If not in header, try to find user's specific cookie
-        if (!$token) {
-            foreach ($_COOKIE as $name => $value) {
-                if (strpos($name, 'token_') === 0) {
-                    return $value;
+        // Get current page
+        $currentPage = basename($_SERVER['PHP_SELF']);
+        
+        // If on login/index page, check if already authenticated
+        if (in_array($currentPage, ['login.php', 'index.php', 'signup.php'])) {
+            $token = $_COOKIE['auth_token'] ?? null;
+            if ($token) {
+                $user = $this->userController->verifyToken();
+                if ($user) {
+                    // Redirect based on role
+                    if ($user->role === 'admin') {
+                        header('Location: ../../blog-site/views/admin.php');
+                        exit;
+                    } else if ($user->role === 'user') {
+                        header('Location: ../../blog-site/views/user.php');
+                        exit;
+                    }
                 }
             }
+            return null; // Allow access to login page
         }
 
-        return $token;
+        // For all other pages, require authentication
+        $token = $_COOKIE['auth_token'] ?? null;
+        if (!$token) {
+            header('Location: ../../blog-site/public/index.php');
+            exit;
+        }
+
+        $user = $this->userController->verifyToken();
+        if (!$user) {
+            // Clear invalid token
+            setcookie('auth_token', '', time() - 3600, '/');
+            header('Location: ../../blog-site/public/index.php');
+            exit;
+        }
+
+        return $user;
     }
 
-    private function initializeUser()
+    public function checkAdminRoute()
     {
-        $token = $this->getAuthorizationToken();
+        $user = $this->checkAuth();
+        
+        // For AJAX requests
+        if (isset($_SERVER['HTTP_X_REQUESTED_WITH']) && 
+            strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest') {
+            if (!$user || $user->role !== 'admin') {
+                header('Content-Type: application/json');
+                http_response_code(403);
+                die(json_encode([
+                    'success' => false,
+                    'error' => 'Authentication required'
+                ]));
+            }
+        } 
+        // For regular requests
+        else if (!$user || $user->role !== 'admin') {
+            header('Location: ../../blog-site/public/index.php');
+            exit;
+        }
+        
+        return $user;
+    }
+
+    public function checkUserRoute()
+    {
+        $user = $this->checkAuth();
+        
+        // Prevent admin users from accessing user pages
+        if (!$user || $user->role === 'admin') {
+            header('Location: ../../blog-site/views/admin.php');
+            exit;
+        }
+        
+        // Check if regular user
+        if ($user->role !== 'user') {
+            header('Location: ../../blog-site/views/unauthorized.php');
+            exit;
+        }
+        
+        return $user;
+    }
+
+    public function authenticate()
+    {
+        // First check for cookie-based authentication
+        $token = $_COOKIE['auth_token'] ?? null;
+
+        // If no cookie, fall back to Authorization header
         if (!$token) {
-            return;
+            $headers = getallheaders();
+            if (!isset($headers['Authorization'])) {
+                http_response_code(401);
+                echo json_encode(['message' => 'Authentication required']);
+                exit;
+            }
+
+            $authHeader = $headers['Authorization'];
+            $arr = explode(" ", $authHeader);
+
+            if (count($arr) != 2) {
+                http_response_code(401);
+                echo json_encode(['message' => 'Invalid Authorization header format']);
+                exit;
+            }
+
+            $token = $arr[1];
         }
 
         try {
-            $decoded = JWTUtility::decode($token);
-            if (!$decoded) {
-                return;
+            // Decode JWT
+            $decoded = JWT::decode($token, $this->secretKey, ['HS256']);
+            
+            // Save user information in session
+            $_SESSION['user_id'] = $decoded->id;
+            $_SESSION['username'] = $decoded->username;
+            $_SESSION['role'] = $decoded->role;
+
+            // Check if token matches the one in database (optional but recommended)
+            $user = \User::find($decoded->id);
+            if (!$user || $user->jwt_token !== $token) {
+                throw new Exception('Token has been invalidated');
             }
 
-            // Verify user and token in database
-            $stmt = $this->pdo->prepare("
-                SELECT * FROM users 
-                WHERE id = ? 
-                AND jwt_token = ? 
-                AND role = ?
-                AND jwt_token IS NOT NULL
-            ");
-            $stmt->execute([$decoded->id, $token, $decoded->role]);
-            $user = $stmt->fetch(PDO::FETCH_ASSOC);
-
-            if ($user && $user['role'] === $decoded->role) {
-                $this->user = $user;
-            }
-        } catch (\Exception $e) {
-            $this->clearAuthToken($decoded->id ?? null);
-        }
-    }
-
-    public function getUser()
-    {
-        return $this->user;
-    }
-
-    public function isAuthenticated()
-    {
-        $this->initializeUser();
-        return $this->user !== null;
-    }
-
-    public function isAdmin()
-    {
-        $this->initializeUser();
-        return $this->user && isset($this->user['role']) && $this->user['role'] === 'admin';
-    }
-
-    public function preventReSignIn()
-    {
-        if (basename($_SERVER['PHP_SELF']) !== 'index.php') {
-            return;
-        }
-
-        if ($this->isAuthenticated()) {
-            if ($this->user['role'] === 'admin') {
-                header('Location: /KD Enterprise/blog-site/views/admin/index.php');
-                exit();
-            } else {
-                header('Location: /KD Enterprise/blog-site/views/users/index.php');
-                exit();
-            }
-        }
-    }
-
-    public function redirectIfNotAdmin()
-    {
-        if (!$this->isAdmin()) {
-            $this->clearAuthToken($this->user['id'] ?? null);
-            header('Location: /KD Enterprise/blog-site/public/index.php');
-            exit();
-        }
-    }
-
-    private function clearAuthToken($userId = null)
-    {
-        // Clear specific user token if ID provided
-        if ($userId) {
-            $cookieName = 'token_' . $userId;
-            setcookie($cookieName, '', [
-                'expires' => time() - 3600,
-                'path' => '/',
-                'secure' => true,
-                'httponly' => true,
-                'samesite' => 'Strict'
-            ]);
-            $this->userModel->invalidateUserToken($userId);
-        }
-
-        // Clear all auth cookies
-        foreach ($_COOKIE as $name => $value) {
-            if (strpos($name, 'token_') === 0) {
-                setcookie($name, '', [
+            return $decoded;
+        } catch (Exception $e) {
+            // Clear invalid cookie if it exists
+            if (isset($_COOKIE['auth_token'])) {
+                setcookie('auth_token', '', [
                     'expires' => time() - 3600,
                     'path' => '/',
                     'secure' => true,
@@ -135,8 +154,35 @@ class AuthMiddleware
                     'samesite' => 'Strict'
                 ]);
             }
+
+            http_response_code(401);
+            echo json_encode([
+                'message' => 'Invalid or expired token',
+                'error' => $e->getMessage()
+            ]);
+            exit;
+        }
+    }
+
+    /**
+     * Check if user has required role
+     */
+    public function checkRole($requiredRole)
+    {
+        $decoded = $this->authenticate();
+        
+        if (!isset($decoded->role) || $decoded->role !== $requiredRole) {
+            http_response_code(403);
+            echo json_encode(['message' => 'Forbidden - Insufficient permissions']);
+            exit;
         }
 
-        $this->user = null;
+        return true;
     }
 }
+
+
+
+
+
+?>
