@@ -12,6 +12,12 @@
 // Load authentication and blog model
 require_once __DIR__ . '/../auth/user_auth.php';
 require_once __DIR__ . '/../models/Blog.php';
+
+// Load UserController in loged User Name
+require_once __DIR__ . '/../controllers/UserController.php';
+$userController = new UserController();
+$user = $userController->verifyToken();
+
 ?>
 
 <!DOCTYPE html>
@@ -29,8 +35,8 @@ require_once __DIR__ . '/../models/Blog.php';
     <!-- Header with user information and logout -->
     <header class="bg-light py-3 border-bottom mb-4">
         <div class="container d-flex justify-content-between align-items-center">
-            <!-- Display authenticated username dynamically -->
-            <h1 class="h3" id="username">Welcome, <?php echo htmlspecialchars($_SESSION['username']); ?>!</h1>
+            <!-- Display authenticated username from JWT token -->
+            <h1 class="h3" id="username">Welcome, <?php echo htmlspecialchars($user->username);  ?>!</h1>                                   
             <p class="text-muted mb-0">Role: User</p>
             <!-- Logout navigation -->
             <nav>
