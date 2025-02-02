@@ -31,7 +31,10 @@ require_once __DIR__ . '/../models/Blog.php';
             <p class="text-muted mb-0">Role: User</p>
             <!-- Logout navigation -->
             <nav>
-                <a href="#" class="btn btn-danger" id="logoutBtn">Logout</a>
+                <form action="../handler/logout_handler.php" method="post">
+                    <button type="submit" class="btn btn-danger" id="logoutBtn">Logout</button>
+                </form>
+               
             </nav>
         </div>
     </header>
