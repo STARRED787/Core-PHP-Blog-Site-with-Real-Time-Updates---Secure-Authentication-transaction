@@ -1,4 +1,5 @@
 <?php
+
 /**
  * User Dashboard View
  * Displays blog posts and handles real-time updates for regular users
@@ -15,6 +16,7 @@ require_once __DIR__ . '/../models/Blog.php';
 
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -22,16 +24,19 @@ require_once __DIR__ . '/../models/Blog.php';
     <!-- Bootstrap CSS for responsive design and styling -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
 </head>
+
 <body>
     <!-- Header with user information and logout -->
     <header class="bg-light py-3 border-bottom mb-4">
         <div class="container d-flex justify-content-between align-items-center">
             <!-- Display authenticated username dynamically -->
-            <h1 class="h3" id="username">Welcome, User!</h1>
+            <h1 class="h3" id="username">Welcome, <?php echo htmlspecialchars($_SESSION['username']); ?>!</h1>
             <p class="text-muted mb-0">Role: User</p>
             <!-- Logout navigation -->
             <nav>
-                <a href="#" class="btn btn-danger" id="logoutBtn">Logout</a>
+                <form action="../handler/logout_handler.php" method="POST">
+                    <button type="submit" class="btn btn-danger">Logout</button>
+                </form>
             </nav>
         </div>
     </header>
@@ -56,4 +61,5 @@ require_once __DIR__ . '/../models/Blog.php';
     <!-- WebSocket handler for real-time updates -->
     <script src="../websocket/userView.js"></script>
 </body>
+
 </html>
