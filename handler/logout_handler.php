@@ -1,6 +1,9 @@
 <?php
 require_once __DIR__ . '/../controllers/UserController.php';
 
-$controller = new UserController();
-$controller->logout();
+$userController = new UserController();
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $userController->logout();
+}
 ?>

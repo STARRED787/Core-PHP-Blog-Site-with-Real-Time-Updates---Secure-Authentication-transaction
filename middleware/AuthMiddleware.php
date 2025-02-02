@@ -180,9 +180,4 @@ class AuthMiddleware
         return true;
     }
 }
-
-
-
-
-
 ?>

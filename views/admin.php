@@ -1,5 +1,18 @@
 <?php
+/**
+ * Admin Dashboard View
+ * Provides blog management interface for administrators
+ * Features:
+ * - Create, edit, and delete blog posts
+ * - Real-time updates via WebSocket
+ * - Tabular view of all blog posts
+ * - Modal forms for CRUD operations
+ */
+
+// Load authentication and blog model
 require_once __DIR__ . '/../auth/admin_auth.php';
+require_once __DIR__ . '/../models/Blog.php';
+
 ?>
 
 <!DOCTYPE html>
@@ -28,9 +41,9 @@ require_once __DIR__ . '/../auth/admin_auth.php';
                 <div class="collapse navbar-collapse" id="navbarNav">
                     <!-- Right-aligned navigation items -->
                     <ul class="navbar-nav ms-auto">
-                        <li class="nav-item">
-                            <a class="nav-link" href="../../blog-site/handler/logout_handler.php">Logout</a>
-                        </li>
+                     <form action="../handler/logout_handler.php" method="POST">
+                        <button type="submit" class="btn btn-danger">Logout</button>
+                     </form>
                     </ul>
                 </div>
             </div>
@@ -47,24 +60,21 @@ require_once __DIR__ . '/../auth/admin_auth.php';
             </button>
         </div>
 
-        <!-- Table responsive wrapper -->
-        <div class="table-responsive">
-            <!-- Blog posts table - Initially hidden -->
-            <table class="table table-bordered" style="display: none;">
-                <thead>
-                    <tr>
-                        <th>ID</th>
-                        <th>Title</th>
-                        <th>Content</th>
-                        <th>Created At</th>
-                        <th>Actions</th>
-                    </tr>
-                </thead>
-                <tbody id="blogTable">
-                    <!-- Content will be loaded by WebSocket -->
-                </tbody>
-            </table>
-        </div>
+        <!-- Blog posts table - Initially hidden -->
+        <table class="table table-bordered" style="display: none;">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Title</th>
+                    <th>Content</th>
+                    <th>Created At</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody id="blogTable">
+                <!-- Content will be loaded by WebSocket -->
+            </tbody>
+        </table>
     </main>
 
     <!-- Modal for creating new blog posts -->

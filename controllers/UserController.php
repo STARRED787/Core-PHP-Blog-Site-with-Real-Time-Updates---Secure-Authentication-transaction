@@ -68,7 +68,7 @@ class UserController
             }
         }
     }
-
+    
     /**
      * Generate JWT token with user information
      * @param int $userId User's ID
@@ -142,10 +142,10 @@ class UserController
      * @param string $requiredRole Role to check for
      * @return mixed True if authorized, JSON error if not
      */
-    public function checkRole($requiredRole)
+    public function checkRole($requiredRole) 
     {
         $token = $_COOKIE['auth_token'] ?? null;
-
+        
         if (!$token) {
             http_response_code(401);
             return json_encode(['message' => 'Unauthorized']);
@@ -154,13 +154,13 @@ class UserController
         try {
             // Decode and verify token
             $decoded = JWT::decode($token, new Key($this->secretKey, 'HS256'));
-
+            
             // Check if user has required role
             if ($decoded->role !== $requiredRole) {
                 http_response_code(403);
                 return json_encode(['message' => 'Forbidden - Insufficient permissions']);
             }
-
+            
             return true;
         } catch (Exception $e) {
             http_response_code(401);
@@ -175,45 +175,24 @@ class UserController
     public function logout()
     {
         try {
-            // Force delete the cookie by setting it multiple ways
-            setcookie('auth_token', '', time() - 3600, '/');  // Basic deletion
-            setcookie('auth_token', false, time() - 3600, '/');  // Alternative deletion
-     
+            // Expire and remove auth cookie
+            setcookie('auth_token', '', time() - 3600, '/');
             
-            // Also try with full parameters
-            setcookie('auth_token', '', [
-                'expires' => 1,
-                'path' => '/',
-                'domain' => '',
-                'secure' => false,  // Changed to ensure cookie deletion works
-                'httponly' => true,
-                'samesite' => 'Lax'  // Changed to ensure cookie deletion works
-            ]);
+            // Clear PHP session data
+       
+            session_unset();
+            session_destroy();
             
-            // Clear from current request
-            unset($_COOKIE['auth_token']);
-            
-            // Clear the token from database
-            if ($user = $this->verifyToken()) {
-                $user->jwt_token = null;
-                $user->save();
-            }
-            
-            // Force a clean redirect to login page
-            ob_clean(); // Clear any output buffers
-            header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
-            header('Cache-Control: post-check=0, pre-check=0', false);
-            header('Pragma: no-cache');
+            // Redirect to login page
             header('Location: ../../blog-site/public/index.php');
-            exit();
-            
+            exit;
         } catch (Exception $e) {
+            // Log error and redirect with error message
             error_log("Logout error: " . $e->getMessage());
             header('Location: ../../blog-site/public/index.php?error=' . urlencode('Error during logout'));
-            exit();
+            exit;
         }
     }
-
 
     /**
      * Verify user's token and return user object
@@ -222,7 +201,7 @@ class UserController
     public function verifyToken()
     {
         $token = $_COOKIE['auth_token'] ?? null;
-
+        
         if (!$token) {
             return null;
         }
@@ -230,7 +209,7 @@ class UserController
         try {
             // Decode token
             $decoded = JWT::decode($token, new Key($this->secretKey, 'HS256'));
-
+            
             // Verify user exists and token matches
             $user = User::find($decoded->id);
             if (!$user || $user->jwt_token !== $token) {
@@ -240,45 +219,6 @@ class UserController
             return $user;
         } catch (Exception $e) {
             return null;
-        }
-    }
-
-    /**
-     * Check if user is authenticated, if not redirect to login
-     * @return User|null Returns user object if authenticated, redirects to login if not
-     */
-    public function requireAuth()
-    {
-        try {
-            // Check for auth token
-            if (!isset($_COOKIE['auth_token'])) {
-                header('Location: ../../blog-site/public/index.php');
-                exit();
-            }
-
-            // Verify the token and get user
-            $user = $this->verifyToken();
-            
-            if (!$user) {
-                // Invalid or expired token, clear it and redirect to login
-                setcookie('auth_token', '', [
-                    'expires' => 1,
-                    'path' => '/',
-                    'domain' => '',
-                    'secure' => false,
-                    'httponly' => true,
-                    'samesite' => 'Lax'
-                ]);
-                header('Location: ../../blog-site/public/index.php');
-                exit();
-            }
-
-            return $user;
-            
-        } catch (Exception $e) {
-            error_log("Authentication error: " . $e->getMessage());
-            header('Location: ../../blog-site/public/index.php?error=' . urlencode('Authentication required'));
-            exit();
         }
     }
 }

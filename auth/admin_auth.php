@@ -13,7 +13,6 @@ $auth = new AuthMiddleware();
 // Verify admin privileges or redirect
 $user = $auth->checkAdminRoute();
 
-
 // Make user data available to the view if needed
 $username = $user->username ?? '';
 ?>
