@@ -36,8 +36,8 @@ $user = $userController->verifyToken();
     <header class="bg-light py-3 border-bottom mb-4">
         <div class="container d-flex justify-content-between align-items-center">
             <!-- Display authenticated username from JWT token -->
-            <h1 class="h3" id="username">Welcome, <?php echo htmlspecialchars($user->username);  ?>!</h1>                                   
-            <p class="text-muted mb-0">Role: User</p>
+            <h1 class="h3" id="username">Welcome, <?php echo htmlspecialchars($user->username); ?>!</h1>
+
             <!-- Logout navigation -->
             <nav>
                 <form action="../handler/logout_handler.php" method="POST">
