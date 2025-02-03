@@ -34,15 +34,15 @@ $dbConfig = [
     ],
 ];
 
-// Output connection details to browser console
-echo "<script>
-    console.log('DB Connection Details:');
-    console.log('Host:', '" . $dbConfig['host'] . "');
-    console.log('Database:', '" . $dbConfig['database'] . "');
-    console.log('Username:', '" . $dbConfig['username'] . "');
-    console.log('Port:', '" . $dbConfig['port'] . "');
-    console.log('Is Railway:', '" . ($isRailway ? 'true' : 'false') . "');
-</script>";
+// Log connection details to error log instead of console
+error_log(sprintf(
+    "DB Connection: host=%s, db=%s, user=%s, port=%s, railway=%s",
+    $dbConfig['host'],
+    $dbConfig['database'],
+    $dbConfig['username'],
+    $dbConfig['port'],
+    $isRailway ? 'true' : 'false'
+));
 
 $capsule->addConnection($dbConfig);
 $capsule->setAsGlobal();
