@@ -24,6 +24,9 @@ class UserController
     {
         if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             try {
+                // Start transaction
+                DB::beginTransaction();
+
                 // Validate required fields
                 if (empty($_POST['username']) || empty($_POST['password'])) {
                     throw new Exception('Username and Password are required!');
@@ -45,6 +48,13 @@ class UserController
                 // Generate authentication token
                 $token = $this->generateToken($user->id, $user->username);
 
+                // Save token to user record
+                $user->jwt_token = $token;
+                $user->save();
+
+                // If we get here, commit the transaction
+                DB::commit();
+
                 // Set secure HTTP-only cookie with token
                 setcookie('auth_token', $token, [
                     'expires' => time() + (60 * 60), // 1 hour expiration
@@ -54,15 +64,14 @@ class UserController
                     'samesite' => 'Strict' // CSRF protection
                 ]);
 
-                // Save token to user record
-                $user->jwt_token = $token;
-                $user->save();
-
                 // Redirect to login page
                 header('Location: ../../blog-site/public/index.php');
                 exit;
 
             } catch (Exception $e) {
+                // Something went wrong, rollback the transaction
+                DB::rollBack();
+                
                 echo json_encode(['error' => $e->getMessage()]);
                 return;
             }
@@ -94,6 +103,9 @@ class UserController
     public function login($credentials)
     {
         try {
+            // Start transaction
+            DB::beginTransaction();
+
             // Find user by username
             $user = User::where('username', $credentials['username'])->first();
 
@@ -110,6 +122,13 @@ class UserController
                 'exp' => time() + (60 * 60)
             ], $this->secretKey, 'HS256');
 
+            // Update user's token in database
+            $user->jwt_token = $token;
+            $user->save();
+
+            // If we get here, commit the transaction
+            DB::commit();
+
             // Set secure cookie with token
             setcookie('auth_token', $token, [
                 'expires' => time() + (60 * 60),
@@ -118,10 +137,6 @@ class UserController
                 'httponly' => true,
                 'samesite' => 'Strict'
             ]);
-
-            // Update user's token in database
-            $user->jwt_token = $token;
-            $user->save();
 
             // Redirect based on user role
             if ($user->role === 'admin') {
@@ -132,6 +147,9 @@ class UserController
             exit;
 
         } catch (Exception $e) {
+            // Something went wrong, rollback the transaction
+            DB::rollBack();
+            
             header('Location: ../../blog-site/public/index.php?error=' . urlencode($e->getMessage()));
             exit;
         }
