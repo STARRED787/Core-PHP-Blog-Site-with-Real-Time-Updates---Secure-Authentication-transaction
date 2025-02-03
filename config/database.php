@@ -18,8 +18,7 @@ $capsule->addConnection([
     'charset'   => 'utf8',
     'collation' => 'utf8_unicode_ci',
     'prefix'    => '',
-    'port'      => '3306',
-    'unix_socket' => '/xampp/mysql/mysql.sock'
+    'port'      => '3306'
 ]);
 
 // Make this Capsule instance available globally
