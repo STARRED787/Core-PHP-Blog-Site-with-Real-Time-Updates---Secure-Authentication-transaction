@@ -4,8 +4,8 @@ ini_set('display_errors', 1);
 ini_set('log_errors', 1);
 error_reporting(E_ALL);
 
-// Define root path
-define('ROOT_PATH', dirname(__DIR__));
+// Define root path for Railway.app
+define('ROOT_PATH', '/app');
 
 // Required dependencies
 require_once ROOT_PATH . '/vendor/autoload.php';    // Composer autoloader
