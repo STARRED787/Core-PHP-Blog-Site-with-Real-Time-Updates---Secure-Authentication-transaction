@@ -34,18 +34,6 @@ $dbConfig = [
     ],
 ];
 
-// Write to log file instead of error_log
-$logMessage = sprintf(
-    "[%s] DB Connection: host=%s, db=%s, user=%s, port=%s, railway=%s\n",
-    date('Y-m-d H:i:s'),
-    $dbConfig['host'],
-    $dbConfig['database'],
-    $dbConfig['username'],
-    $dbConfig['port'],
-    $isRailway ? 'true' : 'false'
-);
-file_put_contents(__DIR__ . '/../logs/db.log', $logMessage, FILE_APPEND);
-
 $capsule->addConnection($dbConfig);
 $capsule->setAsGlobal();
 $capsule->bootEloquent();
