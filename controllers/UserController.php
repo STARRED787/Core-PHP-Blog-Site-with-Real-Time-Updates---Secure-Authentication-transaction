@@ -182,9 +182,9 @@ class UserController
 
             // Redirect based on user role
             if ($user->role === 'admin') {
-                header('Location: /../blog-site/views/admin.php');
+                header('Location: /views/admin.php');
             } else {
-                header('Location: /../blog-site/views/user.php');
+                header('Location: /views/user.php');
             }
             exit;
 
@@ -193,7 +193,7 @@ class UserController
             DB::rollBack();
             ($this->logger)("Transaction rolled back - Login failed: " . $e->getMessage());
             
-            header('Location: ./blog-site/index.php?error=' . urlencode($e->getMessage()));
+            header('Location: /index.php?error=' . urlencode($e->getMessage()));
             exit;
         }
     }
@@ -245,12 +245,12 @@ class UserController
             session_destroy();
             
             // Redirect to login page
-            header('Location: ../../blog-site/index.php');
+            header('Location: /index.php');
             exit;
         } catch (Exception $e) {
             // Log error and redirect with error message
             error_log("Logout error: " . $e->getMessage());
-            header('Location: ../../blog-site/index.php?error=' . urlencode('Error during logout'));
+            header('Location: /index.php?error=' . urlencode('Error during logout'));
             exit;
         }
     }
