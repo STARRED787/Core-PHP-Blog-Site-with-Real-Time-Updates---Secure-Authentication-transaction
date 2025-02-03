@@ -1,14 +1,7 @@
 <?php
-// Enable error reporting
-ini_set('display_errors', 1);
-ini_set('log_errors', 1);
-error_reporting(E_ALL);
-
-// Define root path using document root
-define('ROOT_PATH', $_SERVER['DOCUMENT_ROOT']);
+require_once dirname(__DIR__) . '/bootstrap.php';
 
 // Required dependencies
-require_once ROOT_PATH . '/vendor/autoload.php';    // Composer autoloader
 require_once ROOT_PATH . '/models/User.php';        // User model
 require_once ROOT_PATH . '/utils/JWTUtils.php';     // JWT utility functions
 require_once ROOT_PATH . '/config/database.php';    // Database configuration

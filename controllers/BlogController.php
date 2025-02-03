@@ -1,11 +1,5 @@
 <?php
-// Enable error reporting
-ini_set('display_errors', 1);
-ini_set('log_errors', 1);
-error_reporting(E_ALL);
-
-// Define root path using document root
-define('ROOT_PATH', $_SERVER['DOCUMENT_ROOT']);
+require_once dirname(__DIR__) . '/bootstrap.php';
 require_once ROOT_PATH . '/config/database.php';
 use Illuminate\Database\Capsule\Manager as DB;
 
