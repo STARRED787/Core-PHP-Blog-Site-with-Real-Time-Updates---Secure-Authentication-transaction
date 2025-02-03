@@ -182,9 +182,9 @@ class UserController
 
             // Redirect based on user role
             if ($user->role === 'admin') {
-                header('Location: ../../blog-site/views/admin.php');
+                header('Location: /../blog-site/views/admin.php');
             } else {
-                header('Location: ../../blog-site/views/user.php');
+                header('Location: /../blog-site/views/user.php');
             }
             exit;
 
@@ -193,7 +193,7 @@ class UserController
             DB::rollBack();
             ($this->logger)("Transaction rolled back - Login failed: " . $e->getMessage());
             
-            header('Location: ../../blog-site/index.php?error=' . urlencode($e->getMessage()));
+            header('Location: ./blog-site/index.php?error=' . urlencode($e->getMessage()));
             exit;
         }
     }

@@ -11,11 +11,11 @@ if (getenv('RAILWAY_ENVIRONMENT')) {
     // Use Railway's provided MySQL credentials
     $capsule->addConnection([
         'driver'    => 'mysql',
-        'host'      => getenv('DB_HOST'),
-     
-        'database'  => getenv('DB_NAME'),
-        'username'  => getenv('DB_USER'),
-        'password'  => getenv('DB_PASS'),
+        'host'      => getenv('MYSQLHOST'),      // Railway MySQL host
+        'port'      => getenv('MYSQLPORT'),      // Railway MySQL port
+        'database'  => getenv('MYSQLDATABASE'),  // Railway database name
+        'username'  => getenv('MYSQLUSER'),      // Railway MySQL user
+        'password'  => getenv('MYSQLPASSWORD'),  // Railway MySQL password
         'charset'   => 'utf8',
         'collation' => 'utf8_unicode_ci',
         'prefix'    => '',
