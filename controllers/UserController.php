@@ -1,4 +1,8 @@
 <?php
+// Enable error reporting
+ini_set('display_errors', 1);
+ini_set('log_errors', 1);
+error_reporting(E_ALL);
 // Required dependencies
 require_once __DIR__ . '/../vendor/autoload.php'; // Composer autoloader for dependencies
 require_once __DIR__ . '/../models/User.php';     // User model
