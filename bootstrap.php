@@ -1,6 +1,6 @@
 <?php
-// Define the application root directory for Railway
-define('ROOT_PATH', '/app');
+// Define the application root directory for both local and Railway
+define('ROOT_PATH', getenv('RAILWAY_ENVIRONMENT') ? '/app' : realpath(__DIR__));
 
 // Enable error reporting
 ini_set('display_errors', 1);
