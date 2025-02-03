@@ -1,6 +1,6 @@
 <?php
-// Define the application root directory
-define('ROOT_PATH', realpath(__DIR__));
+// Define the application root directory for Railway
+define('ROOT_PATH', '/app');
 
 // Enable error reporting
 ini_set('display_errors', 1);
