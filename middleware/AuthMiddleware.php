@@ -42,7 +42,7 @@ class AuthMiddleware
         // For all other pages, require authentication
         $token = $_COOKIE['auth_token'] ?? null;
         if (!$token) {
-            header('Location: ../../blog-site/public/index.php');
+            header('Location: ../../blog-site/index.php');
             exit;
         }
 
@@ -50,7 +50,7 @@ class AuthMiddleware
         if (!$user) {
             // Clear invalid token
             setcookie('auth_token', '', time() - 3600, '/');
-            header('Location: ../../blog-site/public/index.php');
+            header('Location: ../../blog-site/index.php');
             exit;
         }
 
@@ -75,7 +75,7 @@ class AuthMiddleware
         } 
         // For regular requests
         else if (!$user || $user->role !== 'admin') {
-            header('Location: ../../blog-site/public/index.php');
+            header('Location: ../../blog-site/index.php');
             exit;
         }
         

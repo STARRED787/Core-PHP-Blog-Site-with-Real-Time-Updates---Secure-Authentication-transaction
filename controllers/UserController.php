@@ -104,7 +104,7 @@ class UserController
                 ]);
 
                 // Redirect to login page
-                header('Location: ../../blog-site/public/index.php');
+                header('Location: ../../blog-site/index.php');
                 exit;
 
             } catch (Exception $e) {
@@ -193,7 +193,7 @@ class UserController
             DB::rollBack();
             ($this->logger)("Transaction rolled back - Login failed: " . $e->getMessage());
             
-            header('Location: ../../blog-site/public/index.php?error=' . urlencode($e->getMessage()));
+            header('Location: ../../blog-site/index.php?error=' . urlencode($e->getMessage()));
             exit;
         }
     }
@@ -245,12 +245,12 @@ class UserController
             session_destroy();
             
             // Redirect to login page
-            header('Location: ../../blog-site/public/index.php');
+            header('Location: ../../blog-site/index.php');
             exit;
         } catch (Exception $e) {
             // Log error and redirect with error message
             error_log("Logout error: " . $e->getMessage());
-            header('Location: ../../blog-site/public/index.php?error=' . urlencode('Error during logout'));
+            header('Location: ../../blog-site/index.php?error=' . urlencode('Error during logout'));
             exit;
         }
     }
