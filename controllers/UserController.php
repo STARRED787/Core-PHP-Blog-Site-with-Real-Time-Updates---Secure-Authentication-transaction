@@ -11,10 +11,38 @@ use Firebase\JWT\JWT;
 use Firebase\JWT\Key;
 use Illuminate\Database\Capsule\Manager as DB;
 
+/**
+ * Transaction Flow in UserController:
+ * 
+ * 1. Start Transaction:
+ *    DB::beginTransaction() starts a new transaction
+ * 
+ * 2. Database Operations:
+ *    - Create user record
+ *    - Update token
+ *    All operations must succeed or none will be applied
+ * 
+ * 3. Success Path:
+ *    DB::commit() saves all changes permanently
+ * 
+ * 4. Error Path:
+ *    DB::rollBack() reverts all changes if any operation fails
+ * 
+ * Logging tracks the transaction lifecycle for debugging
+ */
+
 class UserController
 {
     // Secret key for JWT token encryption/decryption
     private $secretKey = 'your_secret_key_here';
+    private $logger;
+
+    public function __construct() {
+        // Add simple logging
+        $this->logger = function($message) {
+            error_log("[UserController] " . $message);
+        };
+    }
 
     /**
      * Handle user registration
@@ -26,6 +54,7 @@ class UserController
             try {
                 // Start transaction
                 DB::beginTransaction();
+                ($this->logger)("Transaction started - SignUp");
 
                 // Validate required fields
                 if (empty($_POST['username']) || empty($_POST['password'])) {
@@ -36,6 +65,11 @@ class UserController
                 $existingUser = User::where('username', $_POST['username'])->first();
                 if ($existingUser) {
                     throw new Exception('Username already exists!');
+                }
+
+                // Intentionally add a test for transaction
+                if (strlen($_POST['password']) < 6) {
+                    throw new Exception('Password must be at least 6 characters!');
                 }
 
                 // Create new user with hashed password
@@ -54,6 +88,7 @@ class UserController
 
                 // If we get here, commit the transaction
                 DB::commit();
+                ($this->logger)("Transaction committed - SignUp successful");
 
                 // Set secure HTTP-only cookie with token
                 setcookie('auth_token', $token, [
@@ -71,6 +106,7 @@ class UserController
             } catch (Exception $e) {
                 // Something went wrong, rollback the transaction
                 DB::rollBack();
+                ($this->logger)("Transaction rolled back - SignUp failed: " . $e->getMessage());
                 
                 echo json_encode(['error' => $e->getMessage()]);
                 return;
@@ -105,6 +141,7 @@ class UserController
         try {
             // Start transaction
             DB::beginTransaction();
+            ($this->logger)("Transaction started - Login");
 
             // Find user by username
             $user = User::where('username', $credentials['username'])->first();
@@ -128,6 +165,7 @@ class UserController
 
             // If we get here, commit the transaction
             DB::commit();
+            ($this->logger)("Transaction committed - Login successful");
 
             // Set secure cookie with token
             setcookie('auth_token', $token, [
@@ -149,6 +187,7 @@ class UserController
         } catch (Exception $e) {
             // Something went wrong, rollback the transaction
             DB::rollBack();
+            ($this->logger)("Transaction rolled back - Login failed: " . $e->getMessage());
             
             header('Location: ../../blog-site/public/index.php?error=' . urlencode($e->getMessage()));
             exit;
