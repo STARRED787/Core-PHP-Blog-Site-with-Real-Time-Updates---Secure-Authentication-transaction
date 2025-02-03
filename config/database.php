@@ -14,16 +14,16 @@ try {
     // Silent fail if .env doesn't exist
 }
 
-// Check if we're on Railway
-$isRailway = getenv('RAILWAY') === 'true';
+// Check if running on Railway
+$isRailway = getenv('RAILWAY_ENVIRONMENT') !== false;
 
 $dbConfig = [
     'driver'    => 'mysql',
-    'host'      => $isRailway ? 'mysql.railway.internal' : ($_ENV['DB_HOST'] ?? 'localhost'),
-    'port'      => $_ENV['DB_PORT'] ?? '3306',
-    'database'  => $_ENV['DB_NAME'] ?? 'blog_db',
-    'username'  => $_ENV['DB_USER'] ?? 'root',
-    'password'  => $_ENV['DB_PASS'] ?? '',
+    'host'      => $isRailway ? getenv('MYSQLHOST') : ($_ENV['DB_HOST'] ?? 'localhost'),
+    'port'      => $isRailway ? getenv('MYSQLPORT') : ($_ENV['DB_PORT'] ?? '3306'),
+    'database'  => $isRailway ? getenv('MYSQLDATABASE') : ($_ENV['DB_NAME'] ?? 'railway'),
+    'username'  => $isRailway ? getenv('MYSQLUSER') : ($_ENV['DB_USER'] ?? 'root'),
+    'password'  => $isRailway ? getenv('MYSQLPASSWORD') : ($_ENV['DB_PASS'] ?? 'tBBybafUqNrgiNxckJnOZqQJFGNOYSYG'),
     'charset'   => 'utf8',
     'collation' => 'utf8_unicode_ci',
     'prefix'    => '',
