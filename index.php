@@ -22,7 +22,7 @@ $auth->checkAuth();
                 <div class="card shadow-sm">
                     <div class="card-body">
                         <h2 class="text-center mb-4">Login</h2>
-                        <form action="../rtttt/login_handler.php" method="POST">
+                        <form action=" /handler/login_handler.php" method="POST">
                             <div class="mb-3">
                                 <label for="username" class="form-label">Username:</label>
                                 <input type="text" id="username" name="username" class="form-control" required>
