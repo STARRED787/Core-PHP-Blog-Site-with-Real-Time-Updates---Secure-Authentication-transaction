@@ -28,10 +28,10 @@ class AuthMiddleware
                 if ($user) {
                     // Redirect based on role
                     if ($user->role === 'admin') {
-                        header('Location: ../../blog-site/views/admin.php');
+                        header('Location: /views/admin.php');
                         exit;
                     } else if ($user->role === 'user') {
-                        header('Location: ../../blog-site/views/user.php');
+                        header('Location: /views/user.php');
                         exit;
                     }
                 }
