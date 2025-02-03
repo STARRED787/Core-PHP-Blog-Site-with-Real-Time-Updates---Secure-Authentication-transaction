@@ -11,7 +11,7 @@ try {
     $dotenv = Dotenv\Dotenv::createImmutable(__DIR__ . '/../');
     $dotenv->load();
 } catch (Exception $e) {
-    // Ignore if .env doesn't exist (production)
+    // Silent fail if .env doesn't exist
 }
 
 // Check if we're on Railway
@@ -34,15 +34,17 @@ $dbConfig = [
     ],
 ];
 
-// Log connection details to error log instead of console
-error_log(sprintf(
-    "DB Connection: host=%s, db=%s, user=%s, port=%s, railway=%s",
+// Write to log file instead of error_log
+$logMessage = sprintf(
+    "[%s] DB Connection: host=%s, db=%s, user=%s, port=%s, railway=%s\n",
+    date('Y-m-d H:i:s'),
     $dbConfig['host'],
     $dbConfig['database'],
     $dbConfig['username'],
     $dbConfig['port'],
     $isRailway ? 'true' : 'false'
-));
+);
+file_put_contents(__DIR__ . '/../logs/db.log', $logMessage, FILE_APPEND);
 
 $capsule->addConnection($dbConfig);
 $capsule->setAsGlobal();
