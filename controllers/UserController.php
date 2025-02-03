@@ -3,12 +3,16 @@
 ini_set('display_errors', 1);
 ini_set('log_errors', 1);
 error_reporting(E_ALL);
+
+// Define root path
+define('ROOT_PATH', dirname(__DIR__));
+
 // Required dependencies
-require_once __DIR__ . '/../vendor/autoload.php'; // Composer autoloader for dependencies
-require_once __DIR__ . '/../models/User.php';     // User model
-require_once __DIR__ . '/../utils/JWTUtils.php';  // JWT utility functions
-require_once __DIR__ . '/../config/database.php'; // Database configuration
-require_once __DIR__ . '/../core/Model.php';      // Base model class
+require_once ROOT_PATH . '/vendor/autoload.php';    // Composer autoloader
+require_once ROOT_PATH . '/models/User.php';        // User model
+require_once ROOT_PATH . '/utils/JWTUtils.php';     // JWT utility functions
+require_once ROOT_PATH . '/config/database.php';    // Database configuration
+require_once ROOT_PATH . '/core/Model.php';         // Base model class
 
 // Import required JWT classes
 use Firebase\JWT\JWT;

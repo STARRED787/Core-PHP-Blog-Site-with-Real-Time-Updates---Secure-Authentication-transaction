@@ -4,7 +4,8 @@ ini_set('display_errors', 1);
 ini_set('log_errors', 1);
 error_reporting(E_ALL);
 
-require_once __DIR__ . '/../config/database.php';
+define('ROOT_PATH', dirname(__DIR__));
+require_once ROOT_PATH . '/config/database.php';
 use Illuminate\Database\Capsule\Manager as DB;
 
 /**
