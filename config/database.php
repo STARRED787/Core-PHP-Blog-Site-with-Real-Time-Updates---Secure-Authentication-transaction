@@ -14,13 +14,16 @@ try {
     // Ignore if .env doesn't exist (production)
 }
 
+// Check if we're on Railway
+$isRailway = getenv('RAILWAY') === 'true';
+
 $dbConfig = [
     'driver'    => 'mysql',
-    'host'      => $_ENV['MYSQLHOST'] ?? getenv('MYSQLHOST') ?? 'localhost',
-    'port'      => $_ENV['MYSQLPORT'] ?? getenv('MYSQLPORT') ?? '3306',
-    'database'  => $_ENV['MYSQLDATABASE'] ?? getenv('MYSQLDATABASE') ?? 'blog_db',
-    'username'  => $_ENV['MYSQLUSER'] ?? getenv('MYSQLUSER') ?? 'root',
-    'password'  => $_ENV['MYSQLPASSWORD'] ?? getenv('MYSQLPASSWORD') ?? '',
+    'host'      => $isRailway ? 'mysql.railway.internal' : ($_ENV['DB_HOST'] ?? 'localhost'),
+    'port'      => $_ENV['DB_PORT'] ?? '3306',
+    'database'  => $_ENV['DB_NAME'] ?? 'blog_db',
+    'username'  => $_ENV['DB_USER'] ?? 'root',
+    'password'  => $_ENV['DB_PASS'] ?? '',
     'charset'   => 'utf8',
     'collation' => 'utf8_unicode_ci',
     'prefix'    => '',
@@ -30,6 +33,11 @@ $dbConfig = [
         PDO::ATTR_EMULATE_PREPARES => false,
     ],
 ];
+
+// Debug connection details
+error_log("DB Host: " . $dbConfig['host']);
+error_log("DB Name: " . $dbConfig['database']);
+error_log("DB User: " . $dbConfig['username']);
 
 $capsule->addConnection($dbConfig);
 $capsule->setAsGlobal();
